@@ -1,4 +1,17 @@
+#ifdef TARGET_OS_MAC
 #include <unistd.h>
+
+#elif defined _WIN32
+#include <io.h>
+#include <stdint.h>
+#ifndef STDIN_FILENO
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
+#endif
+
+#endif
+
 #include <algorithm>
 #include <cassert>
 #include <stdexcept>
@@ -30,11 +43,11 @@ neighbourhood consists of just {middle,down,right}.
 Images are input and output as raw binary gray-scale
 images, with no header. The processing parameters are
 set on the command line as "width height [bits] [levels]":
-	- Width: positive integer, up to and including 2^24
-	- Height: positive integer, up to and including 2^24
-	- Bits: a binary power <=32, default=8
-	- Levels: number of times to erode before dilating (or vice-versa),
-	          default=1
+- Width: positive integer, up to and including 2^24
+- Height: positive integer, up to and including 2^24
+- Bits: a binary power <=32, default=8
+- Levels: number of times to erode before dilating (or vice-versa),
+default=1
 
 A constraint is that mod(Width*bits,64)==0. There
 is no constraint on image size, beyond that imposed
@@ -51,23 +64,23 @@ scanline order. For images with less than 8 bits per pixel, the
 left-most pixel is in the MSB. For example, the 64x3 1-bit
 image with packed hex representation:
 
-    00 00 00 00 ff ff ff ff  00 00 f0 f0 00 00 0f 0f  01 02 04 08 10 20 40 80
+00 00 00 00 ff ff ff ff  00 00 f0 f0 00 00 0f 0f  01 02 04 08 10 20 40 80
 
 represents the image:
 
-    0000000000000000000000000000000011111111111111111111111111111111
-	0000000000000000111100001111000000000000000000000000111100001111
-	0000000100000010000001000000100000010000001000000100000010000000
+0000000000000000000000000000000011111111111111111111111111111111
+0000000000000000111100001111000000000000000000000000111100001111
+0000000100000010000001000000100000010000001000000100000010000000
 
 You can use imagemagick to convert to and from binary representation.
 For example, to convert a 512x512 image input.png to 2-bit:
 
-	convert input.png -depth 2 gray:input.raw
+convert input.png -depth 2 gray:input.raw
 
 and to convert output.raw back again:
 
-	convert -size 512x512 -depth 2 gray:output.raw output.png
-	
+convert -size 512x512 -depth 2 gray:output.raw output.png
+
 They can also read/write on stdin/stdout for streaming. But, it is
 also easy to generate images programmatically, particularly when
 dealing with large images. You can even use /dev/zero and
@@ -140,10 +153,10 @@ files from there, or from sub-directories of "src".
 As well as your source code, you should also include a
 "readme.txt" or "readme.pdf", which covers the following:
 - What is the approach used to improve performance, in
-  terms of algorithms, patterns, and optimisations.
+terms of algorithms, patterns, and optimisations.
 - A description of any testing methodology or verification.
 - A summary of how work was partitioned within the pair,
-  including planning, design, and testing, as well as coding.
+including planning, design, and testing, as well as coding.
 This document does not need to be long, it is not a project
 report.
 
@@ -174,12 +187,11 @@ you are competing with the others.
 
 */
 
-
 ////////////////////////////////////////////
 // Routines for bringing in binary images
 
 /*! Reverse the orders of bits if necessary
-	\note This is laborious and a bit pointless. I'm sure it could be removed, or at least moved...
+\note This is laborious and a bit pointless. I'm sure it could be removed, or at least moved...
 */
 uint64_t shuffle64(unsigned bits, uint64_t x)
 {
@@ -209,20 +221,20 @@ void unpack_blob(unsigned w, unsigned h, unsigned bits, const uint64_t *pRaw, ui
 {
 	uint64_t buffer=0;
 	unsigned bufferedBits=0;
-	
+
 	const uint64_t MASK=0xFFFFFFFFFFFFFFFFULL>>(64-bits);
-	
+
 	for(unsigned i=0;i<w*h;i++){
 		if(bufferedBits==0){
 			buffer=shuffle64(bits, *pRaw++);
 			bufferedBits=64;
 		}
-		
+
 		pUnpacked[i]=buffer&MASK;
 		buffer=buffer>>bits;
 		bufferedBits-=bits;
 	}
-	
+
 	assert(bufferedBits==0);
 }
 
@@ -231,31 +243,31 @@ void pack_blob(unsigned w, unsigned h, unsigned bits, const uint32_t *pUnpacked,
 {
 	uint64_t buffer=0;
 	unsigned bufferedBits=0;
-	
+
 	const uint64_t MASK=0xFFFFFFFFFFFFFFFFULL>>(64-bits);
-	
+
 	for(unsigned i=0;i<w*h;i++){
 		buffer=buffer | (uint64_t(pUnpacked[i]&MASK)<< bufferedBits);
 		bufferedBits+=bits;
-		
+
 		if(bufferedBits==64){
 			*pRaw++ = shuffle64(bits, buffer);
 			buffer=0;
 			bufferedBits=0;
 		}
 	}
-	
+
 	assert(bufferedBits==0);
 }
 
 bool read_blob(int fd, uint64_t cbBlob, void *pBlob)
 {
 	uint8_t *pBytes=(uint8_t*)pBlob;
-	
+
 	uint64_t done=0;
 	while(done<cbBlob){
 		int todo=(int)std::min(uint64_t(1)<<30, cbBlob-done);		
-		
+
 		int got=read(fd, pBytes+done, todo);
 		if(got==0 && done==0)
 			return false;	// end of file
@@ -263,18 +275,18 @@ bool read_blob(int fd, uint64_t cbBlob, void *pBlob)
 			throw std::invalid_argument("Read failure.");
 		done+=got;
 	}
-	
+
 	return true;
 }
 
 void write_blob(int fd, uint64_t cbBlob, const void *pBlob)
 {
 	const uint8_t *pBytes=(const uint8_t*)pBlob;
-	
+
 	uint64_t done=0;
 	while(done<cbBlob){
 		int todo=(int)std::min(uint64_t(1)<<30, cbBlob-done);
-		
+
 		int got=write(fd, pBytes+done, todo);
 		if(got<=0)
 			throw std::invalid_argument("Write failure.");
@@ -302,7 +314,7 @@ void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vect
 {
 	auto in=[&](int x, int y) -> uint32_t { return input[y*w+x]; };
 	auto out=[&](int x, int y) -> uint32_t & {return output[y*w+x]; };
-	
+
 	for(unsigned x=0;x<w;x++){
 		if(x==0){
 			out(0,0)=vmin(in(0,0), in(0,1), in(1,0));
@@ -342,7 +354,7 @@ void dilate(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vec
 {
 	auto in=[&](int x, int y) -> uint32_t { return input[y*w+x]; };
 	auto out=[&](int x, int y) -> uint32_t & {return output[y*w+x]; };
-	
+
 	for(unsigned x=0;x<w;x++){
 		if(x==0){
 			out(0,0)=vmax(in(0,0), in(0,1), in(1,0));
@@ -372,12 +384,12 @@ void dilate(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vec
 void process(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels)
 {
 	std::vector<uint32_t> buffer(w*h);
-	
+
 	// Depending on whether levels is positive or negative,
 	// we flip the order round.
 	auto fwd=levels < 0 ? erode : dilate;
 	auto rev=levels < 0 ? dilate : erode;
-	
+
 	for(int i=0;i<std::abs(levels);i++){
 		fwd(w, h, pixels, buffer);
 		std::swap(pixels, buffer);
@@ -392,7 +404,7 @@ void process(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<
 void invert(int levels, unsigned w, unsigned h, unsigned bits, std::vector<uint32_t> &pixels)
 {
 	uint32_t mask=0xFFFFFFFFul>>bits;
-	
+
 	for(unsigned i=0;i<w*h;i++){
 		pixels[i]=mask-pixels[i];
 	}
@@ -407,53 +419,53 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "   levels=1 by default\n");
 			exit(1);
 		}
-		
+
 		unsigned w=atoi(argv[1]);
 		unsigned h=atoi(argv[2]);
-		
+
 		unsigned bits=8;
 		if(argc>3){
 			bits=atoi(argv[3]);
 		}
-		
+
 		if(bits>32)
 			throw std::invalid_argument("Bits must be <= 32.");
-		
+
 		unsigned tmp=bits;
 		while(tmp!=1){
 			tmp>>=1;
 			if(tmp==0)
 				throw std::invalid_argument("Bits must be a binary power.");
 		}
-		
+
 		if( ((w*bits)%64) != 0){
 			throw std::invalid_argument(" width*bits must be divisible by 64.");
 		}
-		
+
 		int levels=1;
 		if(argc>4){
 			levels=atoi(argv[4]);
 		}
-		
+
 		fprintf(stderr, "Processing %d x %d image with %d bits per pixel.\n", w, h, bits);
-		
+
 		uint64_t cbRaw=uint64_t(w)*h*bits/8;
 		std::vector<uint64_t> raw(cbRaw/8);
-		
+
 		std::vector<uint32_t> pixels(w*h);
-		
+
 		while(1){
 			if(!read_blob(STDIN_FILENO, cbRaw, &raw[0]))
 				break;	// No more images
 			unpack_blob(w, h, bits, &raw[0], &pixels[0]);		
-			
+
 			process(levels, w, h, bits, pixels);
 			//invert(levels, w, h, bits, pixels);
-			
+
 			pack_blob(w, h, bits, &pixels[0], &raw[0]);
 			write_blob(STDOUT_FILENO, cbRaw, &raw[0]);
 		}
-		
+
 		return 0;
 	}catch(std::exception &e){
 		std::cerr<<"Caught exception : "<<e.what()<<"\n";
