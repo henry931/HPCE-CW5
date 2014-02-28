@@ -5,3 +5,5 @@ void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vect
 void dilate(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output);
 
 void process(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);
+
+void process_opencl(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);

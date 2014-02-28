@@ -6,8 +6,25 @@
 //
 //
 
+#define __CL_ENABLE_EXCEPTIONS
+
+#include <stdexcept>
+#include <cmath>
+#include <stdint.h>
+#include <memory>
+#include <cstdio>
+#include <fstream>
+#include <streambuf>
+#include <iostream>
+
+
 #include "transforms.h"
 #include "utilities.h"
+
+#include "tbb/parallel_for.h"
+#include "tbb/task_group.h"
+
+#include "CL/cl.hpp"
 
 void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output)
 {
@@ -82,4 +99,134 @@ void process(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<
 		rev(w,h,pixels, buffer);
 		std::swap(pixels, buffer);
 	}
+}
+
+void process_opencl(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels)
+{
+    std::vector<cl::Platform> platforms;
+    
+	cl::Platform::get(&platforms);
+	
+    if(platforms.size()==0) throw std::runtime_error("No OpenCL platforms found.");
+    
+    std::cerr<<"Found "<<platforms.size()<<" platforms\n";
+	for(unsigned i=0;i<platforms.size();i++){
+		std::string vendor=platforms[0].getInfo<CL_PLATFORM_VENDOR>();
+		std::cerr<<"  Platform "<<i<<" : "<<vendor<<"\n";
+	}
+    
+    int selectedPlatform=0;
+	if(getenv("HPCE_SELECT_PLATFORM")){
+		selectedPlatform=atoi(getenv("HPCE_SELECT_PLATFORM"));
+	}
+	std::cerr<<"Choosing platform "<<selectedPlatform<<"\n";
+	cl::Platform platform=platforms.at(selectedPlatform);
+    
+    std::vector<cl::Device> devices;
+	platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
+	if(devices.size()==0){
+		throw std::runtime_error("No opencl devices found.\n");
+	}
+    
+	std::cerr<<"Found "<<devices.size()<<" devices\n";
+	for(unsigned i=0;i<devices.size();i++){
+		std::string name=devices[i].getInfo<CL_DEVICE_NAME>();
+		std::cerr<<"  Device "<<i<<" : "<<name<<"\n";
+	}
+    
+    //TODO: Automatic device selection based on startup perfomance test
+    
+    int selectedDevice=0;
+	if(getenv("HPCE_SELECT_DEVICE")){
+		selectedDevice=atoi(getenv("HPCE_SELECT_DEVICE"));
+	}
+	std::cerr<<"Choosing device "<<selectedDevice<<"\n";
+	cl::Device device=devices.at(selectedDevice);
+    
+    cl::Context context(devices);
+    
+    std::string kernelSource=LoadSource("kernels.cl");
+	
+	cl::Program::Sources sources;	// A vector of (data,length) pairs
+	sources.push_back(std::make_pair(kernelSource.c_str(), kernelSource.size()+1));	// push on our single string
+    
+	cl::Program program(context, sources);
+	try{
+		program.build(devices);
+	}catch(...){
+		for(unsigned i=0;i<devices.size();i++){
+			std::cerr<<"Log for device "<<devices[i].getInfo<CL_DEVICE_NAME>()<<":\n\n";
+			std::cerr<<program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[i])<<"\n\n";
+		}
+		throw;
+	}
+    
+    size_t cbBuffer=4*w*h;
+
+    cl::Buffer buffInput(context, CL_MEM_READ_WRITE, cbBuffer);
+	cl::Buffer buffOutput(context, CL_MEM_READ_WRITE, cbBuffer);
+    
+    cl::Kernel erodeKernel(program, "erode_kernel");
+    cl::Kernel dilateKernel(program, "dilate_kernel");
+    
+    cl::CommandQueue queue(context, device);
+    
+    queue.enqueueWriteBuffer(buffInput, CL_TRUE, 0, cbBuffer, &pixels[0]);
+    
+    cl::NDRange offset(0, 0);				// Always start iterations at x=0, y=0
+    cl::NDRange globalSize(w, h);           // Global size must match the original loops
+    cl::NDRange localSize=cl::NullRange;	// We don't care about local size
+    
+    if (levels < 0)
+    {
+        for(unsigned t=0;t<abs(levels);t++){
+            
+            erodeKernel.setArg(0, buffInput);
+            erodeKernel.setArg(1, buffOutput);
+            
+            queue.enqueueNDRangeKernel(erodeKernel, offset, globalSize, localSize);
+            
+            queue.enqueueBarrier();
+            
+            std::swap(buffInput, buffOutput);
+        }
+        for(unsigned t=0;t<abs(levels);t++){
+            
+            dilateKernel.setArg(0, buffInput);
+            dilateKernel.setArg(1, buffOutput);
+            
+            queue.enqueueNDRangeKernel(dilateKernel, offset, globalSize, localSize);
+            
+            queue.enqueueBarrier();
+            
+            std::swap(buffInput, buffOutput);
+        }
+    }
+    else
+    {
+        for(unsigned t=0;t<abs(levels);t++){
+            
+            dilateKernel.setArg(0, buffInput);
+            dilateKernel.setArg(1, buffOutput);
+            
+            queue.enqueueNDRangeKernel(dilateKernel, offset, globalSize, localSize);
+            
+            queue.enqueueBarrier();
+            
+            std::swap(buffInput, buffOutput);
+        }
+        for(unsigned t=0;t<abs(levels);t++){
+            
+            erodeKernel.setArg(0, buffInput);
+            erodeKernel.setArg(1, buffOutput);
+            
+            queue.enqueueNDRangeKernel(erodeKernel, offset, globalSize, localSize);
+            
+            queue.enqueueBarrier();
+            
+            std::swap(buffInput, buffOutput);
+        }
+    }
+
+    queue.enqueueReadBuffer(buffInput, CL_TRUE, 0, cbBuffer, &pixels[0]);
 }

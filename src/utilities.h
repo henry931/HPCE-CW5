@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include <vector>
 
+std::string LoadSource(const char *fileName);
+
 uint64_t shuffle64(unsigned bits, uint64_t x);
 
 uint32_t vmin(uint32_t a, uint32_t b);

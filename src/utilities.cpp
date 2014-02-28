@@ -1,8 +1,27 @@
 #include <cassert>
 #include <stdexcept>
+#include <fstream>
+#include <streambuf>
 
 #include "utilities.h"
 
+//TODO: Move OpenCL initialization code into here.
+
+std::string LoadSource(const char *fileName)
+{
+    std::string baseDir="src/kernels";
+    if(getenv("HPCE_CL_SRC_DIR")){
+        baseDir=getenv("HPCE_CL_SRC_DIR");
+    }
+    
+    std::string fullName=baseDir+"/"+fileName;
+    
+    std::ifstream src(fullName.c_str(), std::ios::in | std::ios::binary);
+    if(!src.is_open())
+        throw std::runtime_error("LoadSource : Couldn't load cl file from '"+fullName+"'.");
+    
+    return std::string((std::istreambuf_iterator<char>(src)),std::istreambuf_iterator<char>());
+}
 
 uint64_t shuffle64(unsigned bits, uint64_t x)
 {
