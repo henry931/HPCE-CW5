@@ -2,12 +2,8 @@
 #ifdef _WIN32
 #include <io.h>
 #include <stdint.h>
-
-#ifndef STDIN_FILENO
-#define STDIN_FILENO 0
-#define STDOUT_FILENO 1
-#define STDERR_FILENO 2
-#endif
+#include <fcntl.h> 
+#include <sys/stat.h>
 
 // Header files for OSX compilation
 #else
@@ -29,8 +25,14 @@
 int main(int argc, char *argv[])
 {
 	// REMOVE BEFORE SUBMIT
-    freopen("input.raw", "r", stdin);
-    freopen("output.raw", "w", stdout);
+	#ifdef _WIN32
+	int STDIN_FILENO, STDOUT_FILENO;
+	_sopen_s(&STDIN_FILENO, "input.raw", _O_BINARY | _O_RDONLY, _SH_DENYWR, _S_IREAD);
+	_sopen_s(&STDOUT_FILENO , "output.raw", _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, _SH_DENYRD, _S_IWRITE);
+	#else
+	freopen("input.raw", "r", stdin);
+	freopen("output.raw", "w", stdout);
+	#endif
     // REMOVE BEFORE SUBMIT
     
     try{

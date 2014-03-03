@@ -3,12 +3,6 @@
 #include <io.h>
 #include <stdint.h>
 
-#ifndef STDIN_FILENO
-#define STDIN_FILENO 0
-#define STDOUT_FILENO 1
-#define STDERR_FILENO 2
-#endif
-
 // Header files for OSX compilation
 #else
 #include <unistd.h>
