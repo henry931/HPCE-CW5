@@ -6,6 +6,12 @@
 //
 //
 
+// Header files for windows compilation
+#ifdef _WIN32
+#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
+#endif
+
+// Shared Headers
 #define __CL_ENABLE_EXCEPTIONS
 
 #include <stdexcept>

@@ -1,4 +1,14 @@
+// Header files for windows compilation
+#ifdef _WIN32
+#include <io.h>
+#include <stdint.h>
+
+// Header files for OSX compilation
+#else
 #include <unistd.h>
+#endif
+
+// Shared Headers
 #include <vector>
 
 std::string LoadSource(const char *fileName);

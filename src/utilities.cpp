@@ -1,3 +1,9 @@
+// Header files for windows compilation
+#ifdef _WIN32
+#include <string>
+#endif
+
+// Shared Headers
 #include <cassert>
 #include <stdexcept>
 #include <fstream>
