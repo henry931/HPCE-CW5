@@ -6,11 +6,23 @@ images, and in particular very large images. The general idea of
 morphological operations can be found here:
 http://homepages.inf.ed.ac.uk/rbf/HIPR2/matmorph.htm
 
+Changelog:
+- 2014/03/03: Patches to make native windows work, plus some comments
+              about platform portability.
+- 2014/03/02: Typo in second paragraph(!): "a close is a dilate followed by an open" -> "a close is a dilate followed by an erode."
+              Thanks to Oskar Weigl.
+              Made clear that negative values of levels are open, positive are close (wasn't explicit before).
+              Thanks to Thomas Parker.
+- 2014/02/28: Clarified the constraints on the maximum value of the levels parameter (otherwise it is too complex).
+              Thanks to Ryan Savitski
+              Also put a concrete limit on how long a program can wait before reading a pixel (as otherwise I leave
+              it open to legalistic definitions of the metric).
+
 Functionality:
 
 The program performs either open or close operations,
 where an open is an erode followed by a dilate, and
-a close is a dilate followed by an open.
+a close is a dilate followed by an erode.
 
 Our erode operation replaces each pixel with the minimum
 of its Von Neumann neighbourhood, i.e. the left-right
@@ -23,18 +35,20 @@ neighbourhood consists of just {middle,down,right}.
 Images are input and output as raw binary gray-scale
 images, with no header. The processing parameters are
 set on the command line as "width height [bits] [levels]":
-	- Width: positive integer, up to and including 2^24
-	- Height: positive integer, up to and including 2^24
-	- Bits: a binary power <=32, default=8
-	- Levels: number of times to erode before dilating (or vice-versa),
-	          default=1
+    - Width: positive integer, up to and including 2^24
+    - Height: positive integer, up to and including 2^24
+    - Bits: a binary power <=32, default=8
+    - Levels: number of times to erode before dilating (or vice-versa),
+              0 <= abs(levels) <= min(width/4, height/4, 64) 
+              default=1,
+              negative values are open, positive values are close
 
 A constraint is that mod(Width*bits,64)==0. There
 is no constraint on image size, beyond that imposed
 by the width, height, and bits parameters. To be
 more specific: you may be asked to process images up
 to 2^44 or so in pixel count, and your program won't
-be running on  a machine with 2^41 bytes of host
+be running on a machine with 2^41 bytes of host
 memory, let alone GPU memory.
 
 Image format:
@@ -49,18 +63,18 @@ image with packed hex representation:
 represents the image:
 
     0000000000000000000000000000000011111111111111111111111111111111
-	0000000000000000111100001111000000000000000000000000111100001111
-	0000000100000010000001000000100000010000001000000100000010000000
+    0000000000000000111100001111000000000000000000000000111100001111
+    0000000100000010000001000000100000010000001000000100000010000000
 
 You can use imagemagick to convert to and from binary representation.
 For example, to convert a 512x512 image input.png to 2-bit:
 
-	convert input.png -depth 2 gray:input.raw
+    convert input.png -depth 2 gray:input.raw
 
 and to convert output.raw back again:
 
-	convert -size 512x512 -depth 2 gray:output.raw output.png
-	
+    convert -size 512x512 -depth 2 gray:output.raw output.png
+
 They can also read/write on stdin/stdout for streaming. But, it is
 also easy to generate images programmatically, particularly when
 dealing with large images. You can even use /dev/zero and
@@ -85,7 +99,9 @@ goal is to minimise the maximimum latency over all
 pixels. Latency measuring does not start until the first
 pixel enters the pipeline, so performance measurement
 is "on-hold" till that point. However, your program
-must eventually read the first pixel...
+must eventually read the first pixel. Practically speaking,
+if your program doesn't read a pixel within ten minutes,
+it will be considered to have hung.
 
 The program should support the full spectrum of input
 parameters correctly, including all image sizes and
@@ -125,6 +141,11 @@ directory, or included with relative paths.
 The compiler will make OpenCL 1.1 available for #include from
 "CL/*" and "OpenCL/*", and TBB 4.2 from "tbb/*". No other
 libraries should be assumed, beyond standard C++11 libraries.
+Practically speaking, common posix libraries are acceptable (i.e.
+things which are in cygwin+linux+macos+mingw), but attempt for
+portability. Visual studio can be used for development, but be
+careful to avoid windows-specific APIs (e.g. try compiling on
+cygwin before submitting).
 
 Your program will always be run with the "src" directory
 as its working directory, so you can load any kernel
