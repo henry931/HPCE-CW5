@@ -24,7 +24,7 @@
 
 int main(int argc, char *argv[])
 {
-	// REMOVE BEFORE SUBMIT
+	//TODO: REMOVE BEFORE SUBMIT
 	#ifdef _WIN32
 	int STDIN_FILENO, STDOUT_FILENO;
 	_sopen_s(&STDIN_FILENO, "input.raw", _O_BINARY | _O_RDONLY, _SH_DENYWR, _S_IREAD);
@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	freopen("input.raw", "r", stdin);
 	freopen("output.raw", "w", stdout);
 	#endif
-    // REMOVE BEFORE SUBMIT
+    //TODO: REMOVE BEFORE SUBMIT
     
     try{
 		if(argc<3){
@@ -72,23 +72,8 @@ int main(int argc, char *argv[])
 		
 		fprintf(stderr, "Processing %d x %d image with %d bits per pixel.\n", w, h, bits);
 		
-		uint64_t cbRaw=uint64_t(w)*h*bits/8;
-		std::vector<uint64_t> raw(cbRaw/8);
-		
-		std::vector<uint32_t> pixels(w*h);
-		
-		while(1){
-			if(!read_blob(STDIN_FILENO, cbRaw, &raw[0]))
-				break;	// No more images
-			unpack_blob(w, h, bits, &raw[0], &pixels[0]);		
-			
-			process_opencl(levels, w, h, bits, pixels);
-			//invert(levels, w, h, bits, pixels);
-			
-			pack_blob(w, h, bits, &pixels[0], &raw[0]);
-			write_blob(STDOUT_FILENO, cbRaw, &raw[0]);
-		}
-		
+        transform(w,h,bits,levels); // This is where the magic happens.
+        
 		return 0;
 	}catch(std::exception &e){
 		std::cerr<<"Caught exception : "<<e.what()<<"\n";

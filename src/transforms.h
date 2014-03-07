@@ -17,3 +17,5 @@ void dilate(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vec
 void process(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);
 
 void process_opencl(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);
+
+void transform(int levels, unsigned w, unsigned h, unsigned bits);
