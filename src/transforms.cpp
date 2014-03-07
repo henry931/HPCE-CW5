@@ -314,6 +314,7 @@ void dilate_parfor(unsigned w, unsigned h, const std::vector<uint32_t> &input, s
 
 void erode_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output)
 {
+	// TODO: Should be straightforward to parfor these guys...
 	// Inputs are ordered vertically LineA,LineB,LineC and the ouput corresponds to LineB as the origin
 	for(unsigned x=0;x<w;x++){
 		if(x==0){
