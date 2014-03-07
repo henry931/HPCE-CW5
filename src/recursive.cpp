@@ -87,7 +87,7 @@ int process_recursive(unsigned recursionlevel,const unsigned w,const unsigned h,
 	}
 	/////////////////////////////////////////////
 
-	if(*thisline < h) {
+	while(*thisline < h) {
 
 		if (recursionlevel == 0){
 		read_blob(inputhandle, cbLine,&raw[0]);
