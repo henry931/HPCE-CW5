@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 				break;	// No more images
 			unpack_blob(w, h, bits, &raw[0], &pixels[0]);		
 
-			process(levels, w, h, bits, pixels);
+			process_opencl(levels, w, h, bits, pixels);
 			//invert(levels, w, h, bits, pixels);
 
 			pack_blob(w, h, bits, &pixels[0], &raw[0]);

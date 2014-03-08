@@ -314,85 +314,84 @@ void dilate_parfor(unsigned w, unsigned h, const std::vector<uint32_t> &input, s
 
 void erode_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output)
 {
-	// TODO: Should be straightforward to parfor these guys...
-	// Inputs are ordered vertically LineA,LineB,LineC and the ouput corresponds to LineB as the origin
-	for(unsigned x=0;x<w;x++){
-		if(x==0){
-				output[x] = vmin(inputB[x], inputA[x], inputB[x+1], inputC[x]);
-		}else if(x<w-1){	
-				output[x] = vmin(inputB[x], inputB[x-1], inputA[x], inputC[x], inputB[x+1]);	
-		}else{
-				output[x]=vmin(inputB[x], inputA[x], inputB[x-1], inputC[x]);
-		}
-	}
+
+	output[0] = vmin(inputB[0], inputA[0], inputB[1], inputC[0]);
+
+	output[w-1]=vmin(inputB[w-1], inputA[w-1], inputB[w-2], inputC[w-1]);
+
+	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
+
+		output[x] = vmin(inputB[x], inputB[x-1], inputA[x], inputC[x], inputB[x+1]);
+
+	});
 }
 
 void dilate_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output)
 {
+	output[0] = vmax(inputB[0], inputA[0], inputB[1], inputC[0]);
+
+	output[w-1]=vmax(inputB[w-1], inputA[w-1], inputB[w-2], inputC[w-1]);
+
 	// Inputs are ordered vertically LineA,LineB,LineC and the ouput corresponds to LineB as the origin
-	for(unsigned x=0;x<w;x++){
-		if(x==0){
-				output[x] = vmax(inputB[x], inputA[x], inputB[x+1], inputC[x]);
-		}else if(x<w-1){	
-				output[x] = vmax(inputB[x], inputB[x-1], inputA[x], inputC[x], inputB[x+1]);	
-		}else{
-				output[x]=vmax(inputB[x], inputA[x], inputB[x-1], inputC[x]);
-		}
-	}
+	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
+
+			output[x] = vmax(inputB[x], inputB[x-1], inputA[x], inputC[x], inputB[x+1]);	
+
+	});
 }
 
 void erode_line_top(unsigned w, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output)
 {
+	output[0] = vmin(inputB[0], inputB[1], inputC[0]);
+
+	output[w-1]=vmin(inputB[w-1], inputB[w-2], inputC[w-1]);
+
 	// Inputs are ordered vertically LineB,LineC and the ouput corresponds to LineB as the origin
-	for(unsigned x=0;x<w;x++){
-		if(x==0){
-				output[x] = vmin(inputB[x], inputB[x+1], inputC[x]);
-		}else if(x<w-1){	
-				output[x] = vmin(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
-		}else{
-				output[x]=vmin(inputB[x], inputB[x-1], inputC[x]);
-		}
-	}
+	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
+	
+			output[x] = vmin(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
+
+	});
 }
 
 void erode_line_bottom(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, std::vector<uint32_t> &output)
 {
+	output[0] = vmin(inputB[0], inputA[0], inputB[1]);
+
+	output[w-1]=vmin(inputB[w-1], inputA[w-1], inputB[w-2]);
+
 	// Inputs are ordered vertically LineA,LineB and the ouput corresponds to LineB as the origin
-	for(unsigned x=0;x<w;x++){
-		if(x==0){
-				output[x] = vmin(inputB[x], inputA[x], inputB[x+1]);
-		}else if(x<w-1){	
-				output[x] = vmin(inputB[x], inputB[x-1], inputA[x], inputB[x+1]);	
-		}else{
-				output[x]=vmin(inputB[x], inputA[x], inputB[x-1]);
-		}
-	}
+	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
+
+			output[x] = vmin(inputB[x], inputB[x-1], inputA[x], inputB[x+1]);	
+
+	});
 }
 
 void dilate_line_top(unsigned w, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output)
 {
+	output[0] = vmax(inputB[0], inputB[1], inputC[0]);
+
+	output[w-1]=vmax(inputB[w-1], inputB[w-2], inputC[w-1]);
+
 	// Inputs are ordered vertically LineB,LineC and the ouput corresponds to LineB as the origin
-	for(unsigned x=0;x<w;x++){
-		if(x==0){
-				output[x] = vmax(inputB[x], inputB[x+1], inputC[x]);
-		}else if(x<w-1){	
-				output[x] = vmax(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
-		}else{
-				output[x]=vmax(inputB[x], inputB[x-1], inputC[x]);
-		}
-	}
+	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
+	
+			output[x] = vmax(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
+
+	});
 }
 
 void dilate_line_bottom(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, std::vector<uint32_t> &output)
 {
+	output[0] = vmax(inputB[0], inputA[0], inputB[1]);
+
+	output[w-1]=vmax(inputB[w-1], inputA[w-1], inputB[w-2]);
+
 	// Inputs are ordered vertically LineA,LineB and the ouput corresponds to LineB as the origin
-	for(unsigned x=0;x<w;x++){
-		if(x==0){
-				output[x] = vmax(inputB[x], inputA[x], inputB[x+1]);
-		}else if(x<w-1){	
-				output[x] = vmax(inputB[x], inputB[x-1], inputA[x], inputB[x+1]);	
-		}else{
-				output[x]=vmax(inputB[x], inputA[x], inputB[x-1]);
-		}
-	}
+	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
+
+			output[x] = vmax(inputB[x], inputB[x-1], inputA[x], inputB[x+1]);	
+
+	});
 }
