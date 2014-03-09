@@ -220,22 +220,38 @@ bool readandunpack_8 (int fd, unsigned w, uint32_t *pUnpacked)
 	}
 
 	uint64_t buffer=0;
-	unsigned bufferedBits=0;
 
-	const uint64_t MASK=0xFFFFFFFFFFFFFFFFULL>>(64-8);
+	const uint64_t MASK=0x00000000000000FFULL;
 
-	for(unsigned i=0;i<w;i++){
-		if(bufferedBits==0){
-			buffer=shuffle64(8, *pRaw++); // Note that this also flips the order of the bits in each pixel value.
-			bufferedBits=64;
-		}
+	for(unsigned i=0;i<w/8;i++){
 
-		pUnpacked[i]=buffer&MASK;
+		buffer=*pRaw++;
+
+		pUnpacked[i*8]=buffer&MASK;
 		buffer=buffer>>8;
-		bufferedBits-=8;
-	}
 
-	assert(bufferedBits==0);
+		pUnpacked[i*8+1]=buffer&MASK;
+		buffer=buffer>>8;
+
+		pUnpacked[i*8+2]=buffer&MASK;
+		buffer=buffer>>8;
+
+		pUnpacked[i*8+3]=buffer&MASK;
+		buffer=buffer>>8;
+
+		pUnpacked[i*8+4]=buffer&MASK;
+		buffer=buffer>>8;
+
+		pUnpacked[i*8+5]=buffer&MASK;
+		buffer=buffer>>8;
+
+		pUnpacked[i*8+6]=buffer&MASK;
+		buffer=buffer>>8;
+
+		pUnpacked[i*8+7]=buffer&MASK;
+		buffer=buffer>>8;
+
+	}
 
 	return true;
 }
