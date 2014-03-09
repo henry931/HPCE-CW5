@@ -15,39 +15,39 @@
 
 std::string LoadSource(const char *fileName)
 {
-    std::string baseDir="src/kernels";
-    if(getenv("HPCE_CL_SRC_DIR")){
-        baseDir=getenv("HPCE_CL_SRC_DIR");
-    }
-    
-    std::string fullName=baseDir+"/"+fileName;
-    
-    std::ifstream src(fullName.c_str(), std::ios::in | std::ios::binary);
-    if(!src.is_open())
-        throw std::runtime_error("LoadSource : Couldn't load cl file from '"+fullName+"'.");
-    
-    return std::string((std::istreambuf_iterator<char>(src)),std::istreambuf_iterator<char>());
+	std::string baseDir="src/kernels";
+	if(getenv("HPCE_CL_SRC_DIR")){
+		baseDir=getenv("HPCE_CL_SRC_DIR");
+	}
+
+	std::string fullName=baseDir+"/"+fileName;
+
+	std::ifstream src(fullName.c_str(), std::ios::in | std::ios::binary);
+	if(!src.is_open())
+		throw std::runtime_error("LoadSource : Couldn't load cl file from '"+fullName+"'.");
+
+	return std::string((std::istreambuf_iterator<char>(src)),std::istreambuf_iterator<char>());
 }
 
 uint64_t shuffle64(unsigned bits, uint64_t x)
 {
 	if(bits==1){
 		x=((x&0x0101010101010101ull)<<7)
-        | ((x&0x0202020202020202ull)<<5)
-        | ((x&0x0404040404040404ull)<<3)
-        | ((x&0x0808080808080808ull)<<1)
-        | ((x&0x1010101010101010ull)>>1)
-        | ((x&0x2020202020202020ull)>>3)
-        | ((x&0x4040404040404040ull)>>5)
-        | ((x&0x8080808080808080ull)>>7);
+			| ((x&0x0202020202020202ull)<<5)
+			| ((x&0x0404040404040404ull)<<3)
+			| ((x&0x0808080808080808ull)<<1)
+			| ((x&0x1010101010101010ull)>>1)
+			| ((x&0x2020202020202020ull)>>3)
+			| ((x&0x4040404040404040ull)>>5)
+			| ((x&0x8080808080808080ull)>>7);
 	}else if(bits==2){
 		x=((x&0x0303030303030303ull)<<6)
-        | ((x&0x0c0c0c0c0c0c0c0cull)<<2)
-        | ((x&0x3030303030303030ull)>>2)
-        | ((x&0xc0c0c0c0c0c0c0c0ull)>>6);
+			| ((x&0x0c0c0c0c0c0c0c0cull)<<2)
+			| ((x&0x3030303030303030ull)>>2)
+			| ((x&0xc0c0c0c0c0c0c0c0ull)>>6);
 	}else if(bits==4){
 		x=((x&0x0f0f0f0f0f0f0f0full)<<4)
-        | ((x&0xf0f0f0f0f0f0f0f0ull)>>4);
+			| ((x&0xf0f0f0f0f0f0f0f0ull)>>4);
 	}
 	return x;
 }
@@ -80,20 +80,20 @@ void unpack_blob(unsigned w, unsigned h, unsigned bits, const uint64_t *pRaw, ui
 {
 	uint64_t buffer=0;
 	unsigned bufferedBits=0;
-	
+
 	const uint64_t MASK=0xFFFFFFFFFFFFFFFFULL>>(64-bits);
-	
+
 	for(unsigned i=0;i<w*h;i++){
 		if(bufferedBits==0){
 			buffer=shuffle64(bits, *pRaw++); // Note that this also flips the order of the bits in each pixel value.
 			bufferedBits=64;
 		}
-		
+
 		pUnpacked[i]=buffer&MASK;
 		buffer=buffer>>bits;
 		bufferedBits-=bits;
 	}
-	
+
 	assert(bufferedBits==0);
 }
 
@@ -102,31 +102,31 @@ void pack_blob(unsigned w, unsigned h, unsigned bits, const uint32_t *pUnpacked,
 {
 	uint64_t buffer=0;
 	unsigned bufferedBits=0;
-	
+
 	const uint64_t MASK=0xFFFFFFFFFFFFFFFFULL>>(64-bits);
-	
+
 	for(unsigned i=0;i<w*h;i++){
 		buffer=buffer | (uint64_t(pUnpacked[i]&MASK)<< bufferedBits);
 		bufferedBits+=bits;
-		
+
 		if(bufferedBits==64){
 			*pRaw++ = shuffle64(bits, buffer);
 			buffer=0;
 			bufferedBits=0;
 		}
 	}
-	
+
 	assert(bufferedBits==0);
 }
 
 bool read_blob(int fd, uint64_t cbBlob, void *pBlob)
 {
 	uint8_t *pBytes=(uint8_t*)pBlob;
-	
+
 	uint64_t done=0;
 	while(done<cbBlob){
 		int todo=(int)std::min(uint64_t(1)<<30, cbBlob-done);
-		
+
 		int got=read(fd, pBytes+done, todo);
 		if(got==0 && done==0)
 			return false;	// end of file
@@ -134,18 +134,18 @@ bool read_blob(int fd, uint64_t cbBlob, void *pBlob)
 			throw std::invalid_argument("Read failure.");
 		done+=got;
 	}
-	
+
 	return true;
 }
 
 void write_blob(int fd, uint64_t cbBlob, const void *pBlob)
 {
 	const uint8_t *pBytes=(const uint8_t*)pBlob;
-	
+
 	uint64_t done=0;
 	while(done<cbBlob){
 		int todo=(int)std::min(uint64_t(1)<<30, cbBlob-done);
-		
+
 		int got=write(fd, pBytes+done, todo);
 		if(got<=0)
 			throw std::invalid_argument("Write failure.");
@@ -156,8 +156,86 @@ void write_blob(int fd, uint64_t cbBlob, const void *pBlob)
 void invert(int levels, unsigned w, unsigned h, unsigned bits, std::vector<uint32_t> &pixels)
 {
 	uint32_t mask=0xFFFFFFFFul>>bits;
-	
+
 	for(unsigned i=0;i<w*h;i++){
 		pixels[i]=mask-pixels[i];
 	}
+}
+
+void packandwriteline_8(unsigned w, const uint32_t *pUnpacked, int fd)
+{
+	// Minimum width is 8 so this should be fine
+
+	// Size of one line
+	uint64_t cbLine=uint64_t(w);
+
+	// Raw buffer for conversion
+	std::vector<uint64_t> raw(cbLine/8);
+
+	const uint64_t MASK=0x00000000000000FFULL;
+
+	uint64_t done=0;
+
+	for(unsigned i=0;i<w/8;i++){
+		raw[i]=raw[i] | (uint64_t(pUnpacked[8*i]&MASK)<< 0);
+		raw[i]=raw[i] | (uint64_t(pUnpacked[8*i+1]&MASK)<< 8);
+		raw[i]=raw[i] | (uint64_t(pUnpacked[8*i+2]&MASK)<< 16);
+		raw[i]=raw[i] | (uint64_t(pUnpacked[8*i+3]&MASK)<< 24);
+		raw[i]=raw[i] | (uint64_t(pUnpacked[8*i+4]&MASK)<< 32);
+		raw[i]=raw[i] | (uint64_t(pUnpacked[8*i+5]&MASK)<< 40);
+		raw[i]=raw[i] | (uint64_t(pUnpacked[8*i+6]&MASK)<< 48);
+		raw[i]=raw[i] | (uint64_t(pUnpacked[8*i+7]&MASK)<< 56);
+	}
+
+	while(done<cbLine){
+		int todo=(int)std::min(uint64_t(1)<<30, cbLine-done);
+
+		int got=write(fd, &raw[0]+done, todo);
+		if(got<=0)
+			throw std::invalid_argument("Write failure.");
+		done+=got;
+	}
+}
+
+bool readandunpack_8 (int fd, unsigned w, uint32_t *pUnpacked)
+{
+	// Size of one line
+	uint64_t cbLine=uint64_t(w);
+
+	// Raw buffer for conversion
+	std::vector<uint64_t> raw(cbLine/8);
+
+	const uint64_t *pRaw = &raw[0];
+
+	uint64_t done=0;
+	while(done<cbLine){
+		int todo=(int)std::min(uint64_t(1)<<30, cbLine-done);
+
+		int got=read(fd, &raw[0]+done, todo);
+		if(got==0 && done==0)
+			return false;	// end of file
+		if(got<=0)
+			throw std::invalid_argument("Read failure.");
+		done+=got;
+	}
+
+	uint64_t buffer=0;
+	unsigned bufferedBits=0;
+
+	const uint64_t MASK=0xFFFFFFFFFFFFFFFFULL>>(64-8);
+
+	for(unsigned i=0;i<w;i++){
+		if(bufferedBits==0){
+			buffer=shuffle64(8, *pRaw++); // Note that this also flips the order of the bits in each pixel value.
+			bufferedBits=64;
+		}
+
+		pUnpacked[i]=buffer&MASK;
+		buffer=buffer>>8;
+		bufferedBits-=8;
+	}
+
+	assert(bufferedBits==0);
+
+	return true;
 }

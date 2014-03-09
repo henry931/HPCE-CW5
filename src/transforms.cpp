@@ -32,6 +32,8 @@
 
 #include "CL/cl.hpp"
 
+#include "smmintrin.h"
+
 void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output)
 {
 	auto in=[&](int x, int y) -> uint32_t { return input[y*w+x]; };
@@ -322,8 +324,57 @@ void erode_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vect
 	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
 
 		output[x] = vmin(inputB[x], inputB[x-1], inputA[x], inputC[x], inputB[x+1]);
-
 	});
+	/*
+	output[0] = vmin(inputB[0], inputA[0], inputB[1], inputC[0]);
+
+	output[w-1]=vmin(inputB[w-1], inputA[w-1], inputB[w-2], inputC[w-1]);
+
+	output[1] = vmin(inputB[1], inputB[0], inputA[1], inputC[1], inputB[2]);
+
+	output[w-2] = vmin(inputB[w-2], inputB[w-3], inputA[w-2], inputC[w-2], inputB[w-1]);
+
+	__m128i a, b, c, d, e, res;
+
+	//tbb::parallel_for<unsigned>(0, w/4-1, 1, [&](unsigned j)	{
+	for (unsigned j = 0; j < w/4-1; j++){
+	a.m128i_u32[0] = inputB[4*j+2];
+	a.m128i_u32[1] = inputB[4*j+3];
+	a.m128i_u32[2] = inputB[4*j+4];
+	a.m128i_u32[3] = inputB[4*j+5];
+
+	b.m128i_u32[0] = inputB[4*j-1+2];
+	b.m128i_u32[1] = inputB[4*j-1+3];
+	b.m128i_u32[2] = inputB[4*j-1+4];
+	b.m128i_u32[3] = inputB[4*j-1+5];
+
+	c.m128i_u32[0] = inputA[4*j+2];
+	c.m128i_u32[1] = inputA[4*j+3];
+	c.m128i_u32[2] = inputA[4*j+4];
+	c.m128i_u32[3] = inputA[4*j+5];
+
+	d.m128i_u32[0] = inputC[4*j+2];
+	d.m128i_u32[1] = inputC[4*j+3];
+	d.m128i_u32[2] = inputC[4*j+4];
+	d.m128i_u32[3] = inputC[4*j+5];
+
+	e.m128i_u32[0] = inputB[4*j+1+2];
+	e.m128i_u32[1] = inputB[4*j+1+3];
+	e.m128i_u32[2] = inputB[4*j+1+4];
+	e.m128i_u32[3] = inputB[4*j+1+5];
+
+	a = _mm_min_epu32(a, b);
+	c = _mm_min_epu32(c, d);
+	res = _mm_min_epu32(a, c);
+	res = _mm_min_epu32(res, e);
+
+	output[4*j+2] = res.m128i_u32[0];
+	output[4*j+3] = res.m128i_u32[1];
+	output[4*j+4] = res.m128i_u32[2];
+	output[4*j+5] = res.m128i_u32[3];
+	//});
+
+	}*/
 }
 
 void dilate_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output)
@@ -335,7 +386,7 @@ void dilate_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vec
 	// Inputs are ordered vertically LineA,LineB,LineC and the ouput corresponds to LineB as the origin
 	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
 
-			output[x] = vmax(inputB[x], inputB[x-1], inputA[x], inputC[x], inputB[x+1]);	
+		output[x] = vmax(inputB[x], inputB[x-1], inputA[x], inputC[x], inputB[x+1]);	
 
 	});
 }
@@ -348,22 +399,8 @@ void erode_line_top(unsigned w, const std::vector<uint32_t> &inputB, const std::
 
 	// Inputs are ordered vertically LineB,LineC and the ouput corresponds to LineB as the origin
 	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
-	
-			output[x] = vmin(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
 
-	});
-}
-
-void erode_line_bottom(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, std::vector<uint32_t> &output)
-{
-	output[0] = vmin(inputB[0], inputA[0], inputB[1]);
-
-	output[w-1]=vmin(inputB[w-1], inputA[w-1], inputB[w-2]);
-
-	// Inputs are ordered vertically LineA,LineB and the ouput corresponds to LineB as the origin
-	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
-
-			output[x] = vmin(inputB[x], inputB[x-1], inputA[x], inputB[x+1]);	
+		output[x] = vmin(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
 
 	});
 }
@@ -376,22 +413,8 @@ void dilate_line_top(unsigned w, const std::vector<uint32_t> &inputB, const std:
 
 	// Inputs are ordered vertically LineB,LineC and the ouput corresponds to LineB as the origin
 	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
-	
-			output[x] = vmax(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
 
-	});
-}
-
-void dilate_line_bottom(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, std::vector<uint32_t> &output)
-{
-	output[0] = vmax(inputB[0], inputA[0], inputB[1]);
-
-	output[w-1]=vmax(inputB[w-1], inputA[w-1], inputB[w-2]);
-
-	// Inputs are ordered vertically LineA,LineB and the ouput corresponds to LineB as the origin
-	tbb::parallel_for<unsigned>(1, w-1, 1, [&](unsigned x)	{
-
-			output[x] = vmax(inputB[x], inputB[x-1], inputA[x], inputB[x+1]);	
+		output[x] = vmax(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
 
 	});
 }

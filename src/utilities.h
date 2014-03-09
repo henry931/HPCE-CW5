@@ -32,3 +32,7 @@ bool read_blob(int fd, uint64_t cbBlob, void *pBlob);
 void write_blob(int fd, uint64_t cbBlob, const void *pBlob);
 
 void invert(int levels, unsigned w, unsigned h, unsigned bits, std::vector<uint32_t> &pixels);
+
+void packandwriteline_8(unsigned w, const uint32_t *pUnpacked, int fd);
+
+bool readandunpack_8 (int fd, unsigned w, uint32_t *pUnpacked);

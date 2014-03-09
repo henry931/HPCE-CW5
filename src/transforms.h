@@ -27,6 +27,4 @@ void erode_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vect
 void dilate_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output);
 
 void erode_line_top(unsigned w, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output);
-void erode_line_bottom(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, std::vector<uint32_t> &output);
 void dilate_line_top(unsigned w, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output);
-void dilate_line_bottom(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, std::vector<uint32_t> &output);
