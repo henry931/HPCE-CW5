@@ -11,6 +11,8 @@
 // Shared Headers
 #include <vector>
 
+#include "smmintrin.h"
+
 std::string LoadSource(const char *fileName);
 
 uint64_t shuffle64(unsigned bits, uint64_t x);
@@ -36,3 +38,7 @@ void invert(int levels, unsigned w, unsigned h, unsigned bits, std::vector<uint3
 void packandwriteline_8(unsigned w, const uint32_t *pUnpacked, int fd);
 
 bool readandunpack_8 (int fd, unsigned w, uint32_t *pUnpacked);
+
+void packandwriteline_sse_8(unsigned w, __m128i *input, int fd);
+
+bool readandunpack_sse_8 (unsigned w, int fd, __m128i *output);

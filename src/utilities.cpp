@@ -11,6 +11,8 @@
 
 #include "utilities.h"
 
+#include "smmintrin.h"
+
 //TODO: Move OpenCL initialization code into here.
 
 std::string LoadSource(const char *fileName)
@@ -205,7 +207,112 @@ bool readandunpack_8 (int fd, unsigned w, uint32_t *pUnpacked)
 	// Raw buffer for conversion
 	std::vector<uint64_t> raw(cbLine/8);
 
-	const uint64_t *pRaw = &raw[0];
+	uint64_t done=0;
+	while(done<cbLine){
+		int todo=(int)std::min(uint64_t(1)<<30, cbLine-done);
+
+		int got=read(fd, &raw[0]+done, todo);
+		if(got==0 && done==0)
+			return false;	// end of file
+		if(got<=0)
+			throw std::invalid_argument("Read failure.");
+		done+=got;
+	}
+
+	const uint64_t MASK=0x00000000000000FFULL;
+
+	for(unsigned i=0;i<w/8;i++){
+
+		pUnpacked[i*8]= raw[i] & 0x00000000000000FFULL;
+
+		pUnpacked[i*8+1]= (raw[i] & 0x000000000000FF00ULL) >> 8;
+
+		pUnpacked[i*8+2]= (raw[i] & 0x0000000000FF0000ULL) >> 16;
+
+		pUnpacked[i*8+3]= (raw[i] & 0x00000000FF000000ULL) >> 24;
+
+		pUnpacked[i*8+4]= (raw[i] & 0x000000FF00000000ULL) >> 32;
+
+		pUnpacked[i*8+5]= (raw[i] & 0x0000FF0000000000ULL) >> 40;
+
+		pUnpacked[i*8+6]= (raw[i] & 0x00FF000000000000ULL) >> 48;
+
+		pUnpacked[i*8+7]= (raw[i] & 0xFF00000000000000ULL) >> 56;
+
+	}
+
+	return true;
+}
+
+void packandwriteline_sse_8(unsigned w, __m128i *input, int fd)
+{
+	// Minimum width is 8 so this should be fine
+
+	// Size of one line
+	uint64_t cbLine=uint64_t(w);
+
+	// Raw buffer for conversion
+	std::vector<uint64_t> raw(cbLine/8);
+
+	const uint64_t MASK=0x00000000000000FFULL;
+
+	uint64_t done=0;
+
+	for(unsigned i=0;i<w/16;i++){
+		raw[2*i]=raw[2*i] | (uint64_t(input[i].m128i_u8[0]&MASK)<< 0);
+		raw[2*i]=raw[2*i] | (uint64_t(input[i].m128i_u8[1]&MASK)<< 8);
+		raw[2*i]=raw[2*i] | (uint64_t(input[i].m128i_u8[2]&MASK)<< 16);
+		raw[2*i]=raw[2*i] | (uint64_t(input[i].m128i_u8[3]&MASK)<< 24);
+		raw[2*i]=raw[2*i] | (uint64_t(input[i].m128i_u8[4]&MASK)<< 32);
+		raw[2*i]=raw[2*i] | (uint64_t(input[i].m128i_u8[5]&MASK)<< 40);
+		raw[2*i]=raw[2*i] | (uint64_t(input[i].m128i_u8[6]&MASK)<< 48);
+		raw[2*i]=raw[2*i] | (uint64_t(input[i].m128i_u8[7]&MASK)<< 56);
+
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input[i].m128i_u8[8]&MASK)<< 0);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input[i].m128i_u8[9]&MASK)<< 8);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input[i].m128i_u8[10]&MASK)<< 16);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input[i].m128i_u8[11]&MASK)<< 24);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input[i].m128i_u8[12]&MASK)<< 32);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input[i].m128i_u8[13]&MASK)<< 40);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input[i].m128i_u8[14]&MASK)<< 48);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input[i].m128i_u8[15]&MASK)<< 56);
+	}
+
+	if(w%16 == 8) // This is a possible case by the specifications
+	{
+		unsigned index = w/16;
+		unsigned index_raw = 2*index; // We need to use index so it rounds down 
+
+		raw[index_raw]=raw[index_raw] | (uint64_t(input[index].m128i_u8[0]&MASK)<< 0);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input[index].m128i_u8[1]&MASK)<< 8);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input[index].m128i_u8[2]&MASK)<< 16);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input[index].m128i_u8[3]&MASK)<< 24);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input[index].m128i_u8[4]&MASK)<< 32);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input[index].m128i_u8[5]&MASK)<< 40);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input[index].m128i_u8[6]&MASK)<< 48);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input[index].m128i_u8[7]&MASK)<< 56);
+	}
+
+	while(done<cbLine){
+		int todo=(int)std::min(uint64_t(1)<<30, cbLine-done);
+
+		int got=write(fd, &raw[0]+done, todo);
+		if(got<=0)
+			throw std::invalid_argument("Write failure.");
+		done+=got;
+	}
+}
+
+bool readandunpack_sse_8 (unsigned w, int fd, __m128i *output)
+{
+	// Size of one line
+	uint64_t cbLine=uint64_t(w);
+
+	// Pack 16 8-bit unsigned ints into these variables
+	__m128i a;
+
+	// Raw buffer for conversion
+	std::vector<uint64_t> raw(cbLine/8);
 
 	uint64_t done=0;
 	while(done<cbLine){
@@ -219,39 +326,40 @@ bool readandunpack_8 (int fd, unsigned w, uint32_t *pUnpacked)
 		done+=got;
 	}
 
-	uint64_t buffer=0;
-
-	const uint64_t MASK=0x00000000000000FFULL;
-
-	for(unsigned i=0;i<w/8;i++){
-
-		buffer=*pRaw++;
-
-		pUnpacked[i*8]=buffer&MASK;
-		buffer=buffer>>8;
-
-		pUnpacked[i*8+1]=buffer&MASK;
-		buffer=buffer>>8;
-
-		pUnpacked[i*8+2]=buffer&MASK;
-		buffer=buffer>>8;
-
-		pUnpacked[i*8+3]=buffer&MASK;
-		buffer=buffer>>8;
-
-		pUnpacked[i*8+4]=buffer&MASK;
-		buffer=buffer>>8;
-
-		pUnpacked[i*8+5]=buffer&MASK;
-		buffer=buffer>>8;
-
-		pUnpacked[i*8+6]=buffer&MASK;
-		buffer=buffer>>8;
-
-		pUnpacked[i*8+7]=buffer&MASK;
-		buffer=buffer>>8;
-
+	for(unsigned i=0;i<w/16;i++){
+		output[i].m128i_u8[0] =	raw[2*i] & 0x00000000000000FFULL;
+		output[i].m128i_u8[1] = (raw[2*i] & 0x000000000000FF00ULL) >> 8;
+		output[i].m128i_u8[2] = (raw[2*i] & 0x0000000000FF0000ULL) >> 16;
+		output[i].m128i_u8[3] = (raw[2*i] & 0x00000000FF000000ULL) >> 24;
+		output[i].m128i_u8[4] = (raw[2*i] & 0x000000FF00000000ULL) >> 32;
+		output[i].m128i_u8[5] = (raw[2*i] & 0x0000FF0000000000ULL) >> 40;
+		output[i].m128i_u8[6] = (raw[2*i] & 0x00FF000000000000ULL) >> 48;
+		output[i].m128i_u8[7] = (raw[2*i] & 0xFF00000000000000ULL) >> 56;
+		output[i].m128i_u8[8] =	raw[2*i+1] & 0x00000000000000FFULL;
+		output[i].m128i_u8[9] = (raw[2*i+1] & 0x000000000000FF00ULL) >> 8;
+		output[i].m128i_u8[10] = (raw[2*i+1] & 0x0000000000FF0000ULL) >> 16;
+		output[i].m128i_u8[11] = (raw[2*i+1] & 0x00000000FF000000ULL) >> 24;
+		output[i].m128i_u8[12] = (raw[2*i+1] & 0x000000FF00000000ULL) >> 32;
+		output[i].m128i_u8[13] = (raw[2*i+1] & 0x0000FF0000000000ULL) >> 40;
+		output[i].m128i_u8[14] = (raw[2*i+1] & 0x00FF000000000000ULL) >> 48;
+		output[i].m128i_u8[15] = (raw[2*i+1] & 0xFF00000000000000ULL) >> 56;
 	}
+
+	if(w%16 == 8) // This is a possible case by the specifications
+	{
+		unsigned index = w/16;
+		unsigned index_raw = 2*index; // We need to use index so it rounds down 
+		output[index].m128i_u8[0] =	raw[index_raw] & 0x00000000000000FFULL;
+		output[index].m128i_u8[1] = (raw[index_raw] & 0x000000000000FF00ULL) >> 8;
+		output[index].m128i_u8[2] = (raw[index_raw] & 0x0000000000FF0000ULL) >> 16;
+		output[index].m128i_u8[3] = (raw[index_raw] & 0x00000000FF000000ULL) >> 24;
+		output[index].m128i_u8[4] = (raw[index_raw] & 0x000000FF00000000ULL) >> 32;
+		output[index].m128i_u8[5] = (raw[index_raw] & 0x0000FF0000000000ULL) >> 40;
+		output[index].m128i_u8[6] = (raw[index_raw] & 0x00FF000000000000ULL) >> 48;
+		output[index].m128i_u8[7] = (raw[index_raw] & 0xFF00000000000000ULL) >> 56;
+		output[index].m128i_u8[8] =	raw[index_raw] & 0x00000000000000FFULL;
+	}
+
 
 	return true;
 }

@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 
 		fprintf(stderr, "Processing %d x %d image with %d bits per pixel.\n", w, h, bits);
 
-		process_recursive_8(levels, w, h,STDIN_FILENO,STDOUT_FILENO);
+		process_recursive_sse_8(levels, w, h,STDIN_FILENO,STDOUT_FILENO);
 
 		return 0;
 

@@ -33,6 +33,7 @@
 #include "CL/cl.hpp"
 
 #include "smmintrin.h"
+#include "emmintrin.h"
 
 void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output)
 {
@@ -325,56 +326,6 @@ void erode_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vect
 
 		output[x] = vmin(inputB[x], inputB[x-1], inputA[x], inputC[x], inputB[x+1]);
 	});
-	/*
-	output[0] = vmin(inputB[0], inputA[0], inputB[1], inputC[0]);
-
-	output[w-1]=vmin(inputB[w-1], inputA[w-1], inputB[w-2], inputC[w-1]);
-
-	output[1] = vmin(inputB[1], inputB[0], inputA[1], inputC[1], inputB[2]);
-
-	output[w-2] = vmin(inputB[w-2], inputB[w-3], inputA[w-2], inputC[w-2], inputB[w-1]);
-
-	__m128i a, b, c, d, e, res;
-
-	//tbb::parallel_for<unsigned>(0, w/4-1, 1, [&](unsigned j)	{
-	for (unsigned j = 0; j < w/4-1; j++){
-	a.m128i_u32[0] = inputB[4*j+2];
-	a.m128i_u32[1] = inputB[4*j+3];
-	a.m128i_u32[2] = inputB[4*j+4];
-	a.m128i_u32[3] = inputB[4*j+5];
-
-	b.m128i_u32[0] = inputB[4*j-1+2];
-	b.m128i_u32[1] = inputB[4*j-1+3];
-	b.m128i_u32[2] = inputB[4*j-1+4];
-	b.m128i_u32[3] = inputB[4*j-1+5];
-
-	c.m128i_u32[0] = inputA[4*j+2];
-	c.m128i_u32[1] = inputA[4*j+3];
-	c.m128i_u32[2] = inputA[4*j+4];
-	c.m128i_u32[3] = inputA[4*j+5];
-
-	d.m128i_u32[0] = inputC[4*j+2];
-	d.m128i_u32[1] = inputC[4*j+3];
-	d.m128i_u32[2] = inputC[4*j+4];
-	d.m128i_u32[3] = inputC[4*j+5];
-
-	e.m128i_u32[0] = inputB[4*j+1+2];
-	e.m128i_u32[1] = inputB[4*j+1+3];
-	e.m128i_u32[2] = inputB[4*j+1+4];
-	e.m128i_u32[3] = inputB[4*j+1+5];
-
-	a = _mm_min_epu32(a, b);
-	c = _mm_min_epu32(c, d);
-	res = _mm_min_epu32(a, c);
-	res = _mm_min_epu32(res, e);
-
-	output[4*j+2] = res.m128i_u32[0];
-	output[4*j+3] = res.m128i_u32[1];
-	output[4*j+4] = res.m128i_u32[2];
-	output[4*j+5] = res.m128i_u32[3];
-	//});
-
-	}*/
 }
 
 void dilate_line(unsigned w, const std::vector<uint32_t> &inputA, const std::vector<uint32_t> &inputB, const std::vector<uint32_t> &inputC, std::vector<uint32_t> &output)
@@ -417,4 +368,244 @@ void dilate_line_top(unsigned w, const std::vector<uint32_t> &inputB, const std:
 		output[x] = vmax(inputB[x], inputB[x-1], inputC[x], inputB[x+1]);	
 
 	});
+}
+
+void erode_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
+{
+	// Each vector element now contains 16 unsigned packed ints
+	unsigned num_elements = w/16;
+	if(w%16 == 8) num_elements++;
+
+	std::vector<__m128i> mintopbottom(num_elements);
+	std::vector<__m128i> minleftright(num_elements);
+
+	__m128i shiftedright, shiftedleft;
+
+	for (unsigned i = 0; i < num_elements; i++)
+		mintopbottom[i] = _mm_min_epu8(inputA[i], inputC[i]);
+
+	for (unsigned i = 1; i < num_elements - 1; i++)
+	{
+		__m128i shiftedright, shiftedleft;
+		// Shift self so we can find minimum
+		for(int j=1; j<16; j++)
+		{
+			shiftedright.m128i_u8[16-j] = inputB[i].m128i_u8[15-j];
+			shiftedleft.m128i_u8[j-1] = inputB[i].m128i_u8[j];
+		}
+		// Need to bring in int from next element in vector
+		shiftedright.m128i_u8[0] = inputB[i-1].m128i_u8[15];
+		shiftedleft.m128i_u8[15] = inputB[i+1].m128i_u8[0];
+		// Get minimum
+		minleftright[i] = _mm_min_epu8(shiftedleft, shiftedright);
+	}
+
+	// When i = 0
+	// Shift self so we can find minimum
+	for(int j=1; j<16; j++)
+	{
+		shiftedright.m128i_u8[16-j] = inputB[0].m128i_u8[15-j];
+		shiftedleft.m128i_u8[j-1] = inputB[0].m128i_u8[j];
+	}
+	// Need to bring in int from next element in vector
+	shiftedright.m128i_u8[0] = 255; // Nothing to bring in so assign maxmium possible value
+	shiftedleft.m128i_u8[15] = inputB[1].m128i_u8[0];
+	// Get minimum
+	minleftright[0] = _mm_min_epu8(shiftedleft, shiftedright);
+
+	// When i = num_elements - 1
+	// Shift self so we can find minimum
+	for(int j=1; j<16; j++)
+	{
+		shiftedright.m128i_u8[16-j] = inputB[num_elements - 1].m128i_u8[15-j];
+		shiftedleft.m128i_u8[j-1] = inputB[num_elements - 1].m128i_u8[j];
+	}
+	// Need to bring in int from next element in vector
+	shiftedright.m128i_u8[0] = inputB[num_elements - 2].m128i_u8[15];
+	shiftedleft.m128i_u8[15] = 255; // Nothing to bring in so assign maxmium possible value
+	// Get minimum
+	minleftright[num_elements - 1] = _mm_min_epu8(shiftedleft, shiftedright);
+
+	for (unsigned i = 0; i < num_elements; i++)
+		output[i] = _mm_min_epu8(_mm_min_epu8(mintopbottom[i], minleftright[i]), inputB[i]);
+}
+
+void dilate_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
+{
+	// Each vector element now contains 16 unsigned packed ints
+	unsigned num_elements = w/16;
+	if(w%16 == 8) num_elements++;
+
+	std::vector<__m128i> maxtopbottom(num_elements);
+	std::vector<__m128i> maxleftright(num_elements);
+
+	__m128i shiftedright, shiftedleft;
+	unsigned values[16];
+
+	for (unsigned i = 0; i < num_elements; i++)
+		maxtopbottom[i] = _mm_max_epu8(inputA[i], inputC[i]);
+
+	for (unsigned i = 1; i < num_elements - 1; i++)
+	{
+		// Shift self so we can find maximum
+		for(int j=1; j<16; j++)
+		{
+			shiftedright.m128i_u8[16-j] = inputB[i].m128i_u8[15-j];
+			shiftedleft.m128i_u8[j-1] = inputB[i].m128i_u8[j];
+		}
+		// Need to bring in int from next element in vector
+		shiftedright.m128i_u8[0] = inputB[i-1].m128i_u8[15];
+		shiftedleft.m128i_u8[15] = inputB[i+1].m128i_u8[0];
+		// Get maximum
+		maxleftright[i] = _mm_max_epu8(shiftedleft, shiftedright);
+	}
+
+	// When i = 0
+	// Shift self so we can find maximum
+	for(int j=1; j<16; j++)
+	{
+		shiftedright.m128i_u8[16-j] = inputB[0].m128i_u8[15-j];
+		shiftedleft.m128i_u8[j-1] = inputB[0].m128i_u8[j];
+	}
+	// Need to bring in int from next element in vector
+	shiftedright.m128i_u8[0] = 0; // Nothing to bring in so assign minimum possible value
+	shiftedleft.m128i_u8[15] = inputB[1].m128i_u8[0];
+	// Get maximum
+	maxleftright[0] = _mm_max_epu8(shiftedleft, shiftedright);
+
+	// When i = num_elements - 1
+	// Shift self so we can find maximum
+	for(int j=1; j<16; j++)
+	{
+		shiftedright.m128i_u8[16-j] = inputB[num_elements - 1].m128i_u8[15-j];
+		shiftedleft.m128i_u8[j-1] = inputB[num_elements - 1].m128i_u8[j];
+	}
+	// Need to bring in int from next element in vector
+	shiftedright.m128i_u8[0] = inputB[num_elements - 2].m128i_u8[15];
+	shiftedleft.m128i_u8[15] = 0; // Nothing to bring in so assign minimum possible value
+	// Get maximum
+	maxleftright[num_elements - 1] = _mm_max_epu8(shiftedleft, shiftedright);
+
+	for (unsigned i = 0; i < num_elements; i++)
+		output[i] = _mm_max_epu8(_mm_max_epu8(maxtopbottom[i], maxleftright[i]), inputB[i]);
+}
+
+void erode_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
+{
+	// Each vector element now contains 16 unsigned packed ints
+	unsigned num_elements = w/16;
+	if(w%16 == 8) num_elements++;
+
+	std::vector<__m128i> mintopbottom(num_elements);
+	std::vector<__m128i> minleftright(num_elements);
+
+	__m128i shiftedright, shiftedleft;
+	unsigned values[16];
+
+	for (unsigned i = 0; i < num_elements; i++)
+		mintopbottom[i] = _mm_min_epu8(inputB[i], inputC[i]);
+
+	for (unsigned i = 1; i < num_elements - 1; i++)
+	{
+		// Shift self so we can find minimum
+		for(int j=1; j<16; j++)
+		{
+			shiftedright.m128i_u8[16-j] = inputB[i].m128i_u8[15-j];
+			shiftedleft.m128i_u8[j-1] = inputB[i].m128i_u8[j];
+		}
+		// Need to bring in int from next element in vector
+		shiftedright.m128i_u8[0] = inputB[i-1].m128i_u8[15];
+		shiftedleft.m128i_u8[15] = inputB[i+1].m128i_u8[0];
+		// Get minimum
+		minleftright[i] = _mm_min_epu8(shiftedleft, shiftedright);
+	}
+
+	// When i = 0
+	// Shift self so we can find minimum
+	for(int j=1; j<16; j++)
+	{
+		shiftedright.m128i_u8[16-j] = inputB[0].m128i_u8[15-j];
+		shiftedleft.m128i_u8[j-1] = inputB[0].m128i_u8[j];
+	}
+	// Need to bring in int from next element in vector
+	shiftedright.m128i_u8[0] = 255; // Nothing to bring in so assign maxmium possible value
+	shiftedleft.m128i_u8[15] = inputB[1].m128i_u8[0];
+	// Get minimum
+	minleftright[0] = _mm_min_epu8(shiftedleft, shiftedright);
+
+	// When i = num_elements - 1
+	// Shift self so we can find minimum
+	for(int j=1; j<16; j++)
+	{
+		shiftedright.m128i_u8[16-j] = inputB[num_elements - 1].m128i_u8[15-j];
+		shiftedleft.m128i_u8[j-1] = inputB[num_elements - 1].m128i_u8[j];
+	}
+	// Need to bring in int from next element in vector
+	shiftedright.m128i_u8[0] = inputB[num_elements - 2].m128i_u8[15];
+	shiftedleft.m128i_u8[15] = 255; // Nothing to bring in so assign maxmium possible value
+	// Get minimum
+	minleftright[num_elements - 1] = _mm_min_epu8(shiftedleft, shiftedright);
+
+	for (unsigned i = 0; i < num_elements; i++)
+		output[i] = _mm_min_epu8(mintopbottom[i], minleftright[i]);
+}
+
+void dilate_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
+{
+	// Each vector element now contains 16 unsigned packed ints
+	unsigned num_elements = w/16;
+	if(w%16 == 8) num_elements++;
+
+	std::vector<__m128i> maxtopbottom(num_elements);
+	std::vector<__m128i> maxleftright(num_elements);
+
+	__m128i shiftedright, shiftedleft;
+	unsigned values[16];
+
+	for (unsigned i = 0; i < num_elements; i++)
+		maxtopbottom[i] = _mm_max_epu8(inputB[i], inputC[i]);
+
+	for (unsigned i = 1; i < num_elements - 1; i++)
+	{
+		// Shift self so we can find maximum
+		for(int j=1; j<16; j++)
+		{
+			shiftedright.m128i_u8[16-j] = inputB[i].m128i_u8[15-j];
+			shiftedleft.m128i_u8[j-1] = inputB[i].m128i_u8[j];
+		}
+		// Need to bring in int from next element in vector
+		shiftedright.m128i_u8[0] = inputB[i-1].m128i_u8[15];
+		shiftedleft.m128i_u8[15] = inputB[i+1].m128i_u8[0];
+		// Get maximum
+		maxleftright[i] = _mm_max_epu8(shiftedleft, shiftedright);
+	}
+
+	// When i = 0
+	// Shift self so we can find maximum
+	for(int j=1; j<16; j++)
+	{
+		shiftedright.m128i_u8[16-j] = inputB[0].m128i_u8[15-j];
+		shiftedleft.m128i_u8[j-1] = inputB[0].m128i_u8[j];
+	}
+	// Need to bring in int from next element in vector
+	shiftedright.m128i_u8[0] = 0; // Nothing to bring in so assign minmium possible value
+	shiftedleft.m128i_u8[15] = inputB[1].m128i_u8[0];
+	// Get maximum
+	maxleftright[0] = _mm_max_epu8(shiftedleft, shiftedright);
+
+	// When i = num_elements - 1
+	// Shift self so we can find maximum
+	for(int j=1; j<16; j++)
+	{
+		shiftedright.m128i_u8[16-j] = inputB[num_elements - 1].m128i_u8[15-j];
+		shiftedleft.m128i_u8[j-1] = inputB[num_elements - 1].m128i_u8[j];
+	}
+	// Need to bring in int from next element in vector
+	shiftedright.m128i_u8[0] = inputB[num_elements - 2].m128i_u8[15];
+	shiftedleft.m128i_u8[15] = 0; // Nothing to bring in so assign minmium possible value
+	// Get maximum
+	maxleftright[num_elements - 1] = _mm_max_epu8(shiftedleft, shiftedright);
+
+	for (unsigned i = 0; i < num_elements; i++)
+		output[i] = _mm_max_epu8(maxtopbottom[i], maxleftright[i]);
 }
