@@ -95,7 +95,7 @@ void pack_blob_32(unsigned bytes, const uint32_t *pUnpacked, uint64_t *pRaw)
         //pRaw[i] |= uint64_t(pUnpacked[2*i]) << 32;
         //pRaw[i] |= uint64_t(pUnpacked[2*i+1]);
         
-        pRaw[i] |= uint64_t(pUnpacked[2*i+1]) << 32;
+        pRaw[i] = uint64_t(pUnpacked[2*i+1]) << 32;
         pRaw[i] |= uint64_t(pUnpacked[2*i]);
     }
 }

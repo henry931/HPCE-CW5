@@ -1,3 +1,5 @@
+//TODO: Reverse other kernels
+
 uint min2(uint a,uint b)
 {
     uint mask = 0xC0000000;
@@ -472,9 +474,6 @@ __kernel void erode_kernel_8(__global uint* input,__global uint* output)
     
     uint center = input[index];
     
-    //center = min8(center, (center << 8) | ((right >> 24) & 0xFF));
-    //center = min8(center, (center >> 8) | ((left & 0xFF) << 24));
-    
     center = min8(center, (center << 8) | ((left >> 24) & 0xFF));
     center = min8(center, (center >> 8) | ((right & 0xFF) << 24));
     
@@ -509,9 +508,6 @@ __kernel void dilate_kernel_8(__global uint* input,__global uint* output)
     else right = 0x0;
     
     uint center = input[index];
-    
-    //center = max8(center, (center << 8) | ((right >> 24) & 0xFF));
-    //center = max8(center, (center >> 8) | ((left & 0xFF) << 24));
     
     center = max8(center, (center << 8) | ((left >> 24) & 0xFF));
     center = max8(center, (center >> 8) | ((right & 0xFF) << 24));
