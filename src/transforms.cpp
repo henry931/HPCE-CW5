@@ -23,7 +23,6 @@
 #include <streambuf>
 #include <iostream>
 
-
 #include "transforms.h"
 #include "utilities.h"
 
@@ -378,6 +377,9 @@ void erode_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std:
 
 	//Temporary buffers
 	__m128i shiftedright, shiftedleft;
+	uint8_t *shiftedright_ptr = (uint8_t*) &shiftedright;
+	uint8_t *shiftedleft_ptr = (uint8_t*) &shiftedleft;
+	uint8_t *next_container, *previous_container;
 
 	// Masks
 	const __m128i maskright = _mm_set_epi8(14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,50);
@@ -385,33 +387,37 @@ void erode_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std:
 
 	for (unsigned i = 1; i < num_elements - 1; i++)
 	{
+		previous_container = (uint8_t*) &inputB[i-1];
+		next_container = (uint8_t*) &inputB[i+1];
 		// Shift self so we can find minimum
 		shiftedright = _mm_shuffle_epi8(inputB[i], maskright);
 		shiftedleft = _mm_shuffle_epi8(inputB[i], maskleft);
 		// Need to bring in int from next element in vector
-		shiftedright.m128i_u8[0] = inputB[i-1].m128i_u8[15];
-		shiftedleft.m128i_u8[15] = inputB[i+1].m128i_u8[0];
+		shiftedright_ptr[0] = previous_container[15];
+		shiftedleft_ptr[15] = next_container[0];
 		// Get minimum
 		output[i] = _mm_min_epu8(_mm_min_epu8(inputB[i], _mm_min_epu8(shiftedleft, shiftedright)), _mm_min_epu8(inputA[i], inputC[i]));
 	}
 
 	// When i = 0
+	next_container = (uint8_t*) &inputB[1];
 	// Shift self so we can find minimum
 	shiftedright = _mm_shuffle_epi8(inputB[0], maskright);
 	shiftedleft = _mm_shuffle_epi8(inputB[0], maskleft);
 	// Need to bring in int from next element in vector
-	shiftedright.m128i_u8[0] = 255; // Nothing to bring in so assign maxmium possible value
-	shiftedleft.m128i_u8[15] = inputB[1].m128i_u8[0];
+	shiftedright_ptr[0] = 255; // Nothing to bring in so assign maxmium possible value
+	shiftedleft_ptr[15] = next_container[0];
 	// Get minimum
 	output[0] = _mm_min_epu8(_mm_min_epu8(inputB[0], _mm_min_epu8(shiftedleft, shiftedright)), _mm_min_epu8(inputA[0], inputC[0]));
 
 	// When i = num_elements - 1
+	previous_container = (uint8_t*) &inputB[num_elements-2];
 	// Shift self so we can find minimum
 	shiftedright = _mm_shuffle_epi8(inputB[num_elements - 1], maskright);
 	shiftedleft = _mm_shuffle_epi8(inputB[num_elements - 1], maskleft);
 	// Need to bring in int from next element in vector
-	shiftedright.m128i_u8[0] = inputB[num_elements - 2].m128i_u8[15];
-	shiftedleft.m128i_u8[15-w%16] = 255; // Accounts for w%16 == 8 case
+	shiftedright_ptr[0] = previous_container[15];
+	shiftedleft_ptr[15-w%16] = 255; // Accounts for w%16 == 8 case
 	// Get minimum
 	output[num_elements-1] = _mm_min_epu8(_mm_min_epu8(inputB[num_elements-1], _mm_min_epu8(shiftedleft, shiftedright)), _mm_min_epu8(inputA[num_elements-1], inputC[num_elements-1]));
 }
@@ -424,6 +430,9 @@ void dilate_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std
 
 	//Temporary buffers
 	__m128i shiftedright, shiftedleft;
+	uint8_t *shiftedright_ptr = (uint8_t*) &shiftedright;
+	uint8_t *shiftedleft_ptr = (uint8_t*) &shiftedleft;
+	uint8_t *next_container, *previous_container;
 
 	// Masks
 	const __m128i maskright = _mm_set_epi8(14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,50);
@@ -431,33 +440,37 @@ void dilate_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std
 
 	for (unsigned i = 1; i < num_elements - 1; i++)
 	{
+		previous_container = (uint8_t*) &inputB[i-1];
+		next_container = (uint8_t*) &inputB[i+1];
 		// Shift self so we can find maximum
 		shiftedright = _mm_shuffle_epi8(inputB[i], maskright);
 		shiftedleft = _mm_shuffle_epi8(inputB[i], maskleft);
 		// Need to bring in int from next element in vector
-		shiftedright.m128i_u8[0] = inputB[i-1].m128i_u8[15];
-		shiftedleft.m128i_u8[15] = inputB[i+1].m128i_u8[0];
+		shiftedright_ptr[0] = previous_container[15];
+		shiftedleft_ptr[15] = next_container[0];
 		// Get maximum
 		output[i] = _mm_max_epu8(_mm_max_epu8(inputB[i], _mm_max_epu8(shiftedleft, shiftedright)), _mm_max_epu8(inputA[i], inputC[i]));
 	}
 
 	// When i = 0
+	next_container = (uint8_t*) &inputB[1];
 	// Shift self so we can find maximum
 	shiftedright = _mm_shuffle_epi8(inputB[0], maskright);
 	shiftedleft = _mm_shuffle_epi8(inputB[0], maskleft);
 	// Need to bring in int from next element in vector
-	shiftedright.m128i_u8[0] = 0; // Nothing to bring in so assign maxmium possible value
-	shiftedleft.m128i_u8[15] = inputB[1].m128i_u8[0];
+	shiftedright_ptr[0] = 0; // Nothing to bring in so assign minmium possible value
+	shiftedleft_ptr[15] = next_container[0];
 	// Get maximum
 	output[0] = _mm_max_epu8(_mm_max_epu8(inputB[0], _mm_max_epu8(shiftedleft, shiftedright)), _mm_max_epu8(inputA[0], inputC[0]));
 
 	// When i = num_elements - 1
+	previous_container = (uint8_t*) &inputB[num_elements-2];
 	// Shift self so we can find maximum
 	shiftedright = _mm_shuffle_epi8(inputB[num_elements - 1], maskright);
 	shiftedleft = _mm_shuffle_epi8(inputB[num_elements - 1], maskleft);
 	// Need to bring in int from next element in vector
-	shiftedright.m128i_u8[0] = inputB[num_elements - 2].m128i_u8[15];
-	shiftedleft.m128i_u8[15-w%16] = 0; // Accounts for w%16 == 8 case
+	shiftedright_ptr[0] = previous_container[15];
+	shiftedleft_ptr[15-w%16] = 0; // Accounts for w%16 == 8 case
 	// Get maximum
 	output[num_elements-1] = _mm_max_epu8(_mm_max_epu8(inputB[num_elements-1], _mm_max_epu8(shiftedleft, shiftedright)), _mm_max_epu8(inputA[num_elements-1], inputC[num_elements-1]));
 }
@@ -470,6 +483,9 @@ void erode_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const 
 
 	//Temporary buffers
 	__m128i shiftedright, shiftedleft;
+	uint8_t *shiftedright_ptr = (uint8_t*) &shiftedright;
+	uint8_t *shiftedleft_ptr = (uint8_t*) &shiftedleft;
+	uint8_t *next_container, *previous_container;
 
 	// Masks
 	const __m128i maskright = _mm_set_epi8(14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,50);
@@ -477,35 +493,39 @@ void erode_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const 
 
 	for (unsigned i = 1; i < num_elements - 1; i++)
 	{
+		previous_container = (uint8_t*) &inputB[i-1];
+		next_container = (uint8_t*) &inputB[i+1];
 		// Shift self so we can find minimum
 		shiftedright = _mm_shuffle_epi8(inputB[i], maskright);
 		shiftedleft = _mm_shuffle_epi8(inputB[i], maskleft);
 		// Need to bring in int from next element in vector
-		shiftedright.m128i_u8[0] = inputB[i-1].m128i_u8[15];
-		shiftedleft.m128i_u8[15] = inputB[i+1].m128i_u8[0];
-		// Calculate minimum
-		output[i] = _mm_min_epu8(_mm_min_epu8(inputB[i], inputC[i]), _mm_min_epu8(shiftedleft, shiftedright));
+		shiftedright_ptr[0] = previous_container[15];
+		shiftedleft_ptr[15] = next_container[0];
+		// Get minimum
+		output[i] = _mm_min_epu8(_mm_min_epu8(shiftedleft, shiftedright), _mm_min_epu8(inputB[i], inputC[i]));
 	}
 
 	// When i = 0
+	next_container = (uint8_t*) &inputB[1];
 	// Shift self so we can find minimum
 	shiftedright = _mm_shuffle_epi8(inputB[0], maskright);
 	shiftedleft = _mm_shuffle_epi8(inputB[0], maskleft);
 	// Need to bring in int from next element in vector
-	shiftedright.m128i_u8[0] = 255; // Nothing to bring in so assign maxmium possible value
-	shiftedleft.m128i_u8[15] = inputB[1].m128i_u8[0];
+	shiftedright_ptr[0] = 255; // Nothing to bring in so assign maxmium possible value
+	shiftedleft_ptr[15] = next_container[0];
 	// Get minimum
-	output[0] = _mm_min_epu8(_mm_min_epu8(inputB[0], inputC[0]), _mm_min_epu8(shiftedleft, shiftedright));
+	output[0] = _mm_min_epu8(_mm_min_epu8(shiftedleft, shiftedright), _mm_min_epu8(inputB[0], inputC[0]));
 
 	// When i = num_elements - 1
+	previous_container = (uint8_t*) &inputB[num_elements-2];
 	// Shift self so we can find minimum
 	shiftedright = _mm_shuffle_epi8(inputB[num_elements - 1], maskright);
 	shiftedleft = _mm_shuffle_epi8(inputB[num_elements - 1], maskleft);
 	// Need to bring in int from next element in vector
-	shiftedright.m128i_u8[0] = inputB[num_elements - 2].m128i_u8[15];
-	shiftedleft.m128i_u8[15-w%16] = 255; // Accounts for w%16 == 8 case
+	shiftedright_ptr[0] = previous_container[15];
+	shiftedleft_ptr[15-w%16] = 255; // Accounts for w%16 == 8 case
 	// Get minimum
-	output[num_elements-1] = _mm_min_epu8(_mm_min_epu8(inputB[num_elements-1], inputC[num_elements-1]), _mm_min_epu8(shiftedleft, shiftedright));
+	output[num_elements-1] = _mm_min_epu8(_mm_min_epu8(shiftedleft, shiftedright), _mm_min_epu8(inputB[num_elements-1], inputC[num_elements-1]));
 }
 
 void dilate_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
@@ -516,6 +536,9 @@ void dilate_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const
 
 	//Temporary buffers
 	__m128i shiftedright, shiftedleft;
+	uint8_t *shiftedright_ptr = (uint8_t*) &shiftedright;
+	uint8_t *shiftedleft_ptr = (uint8_t*) &shiftedleft;
+	uint8_t *next_container, *previous_container;
 
 	// Masks
 	const __m128i maskright = _mm_set_epi8(14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,50);
@@ -523,33 +546,37 @@ void dilate_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const
 
 	for (unsigned i = 1; i < num_elements - 1; i++)
 	{
+		previous_container = (uint8_t*) &inputB[i-1];
+		next_container = (uint8_t*) &inputB[i+1];
 		// Shift self so we can find maximum
 		shiftedright = _mm_shuffle_epi8(inputB[i], maskright);
 		shiftedleft = _mm_shuffle_epi8(inputB[i], maskleft);
 		// Need to bring in int from next element in vector
-		shiftedright.m128i_u8[0] = inputB[i-1].m128i_u8[15];
-		shiftedleft.m128i_u8[15] = inputB[i+1].m128i_u8[0];
+		shiftedright_ptr[0] = previous_container[15];
+		shiftedleft_ptr[15] = next_container[0];
 		// Get maximum
 		output[i] = _mm_max_epu8(_mm_max_epu8(shiftedleft, shiftedright), _mm_max_epu8(inputB[i], inputC[i]));
 	}
 
 	// When i = 0
+	next_container = (uint8_t*) &inputB[1];
 	// Shift self so we can find maximum
 	shiftedright = _mm_shuffle_epi8(inputB[0], maskright);
 	shiftedleft = _mm_shuffle_epi8(inputB[0], maskleft);
 	// Need to bring in int from next element in vector
-	shiftedright.m128i_u8[0] = 0; // Nothing to bring in so assign maxmium possible value
-	shiftedleft.m128i_u8[15] = inputB[1].m128i_u8[0];
+	shiftedright_ptr[0] = 0; // Nothing to bring in so assign minmium possible value
+	shiftedleft_ptr[15] = next_container[0];
 	// Get maximum
 	output[0] = _mm_max_epu8(_mm_max_epu8(shiftedleft, shiftedright), _mm_max_epu8(inputB[0], inputC[0]));
 
 	// When i = num_elements - 1
+	previous_container = (uint8_t*) &inputB[num_elements-2];
 	// Shift self so we can find maximum
 	shiftedright = _mm_shuffle_epi8(inputB[num_elements - 1], maskright);
 	shiftedleft = _mm_shuffle_epi8(inputB[num_elements - 1], maskleft);
 	// Need to bring in int from next element in vector
-	shiftedright.m128i_u8[0] = inputB[num_elements - 2].m128i_u8[15];
-	shiftedleft.m128i_u8[15-w%16] = 0; // Accounts for w%16 == 8 case
+	shiftedright_ptr[0] = previous_container[15];
+	shiftedleft_ptr[15-w%16] = 0; // Accounts for w%16 == 8 case
 	// Get maximum
-	output[num_elements-1] = _mm_max_epu8(_mm_max_epu8(shiftedleft, shiftedright), _mm_max_epu8(inputB[num_elements-1], inputC[num_elements-1]));
+	output[num_elements-1] = _mm_max_epu8( _mm_max_epu8(shiftedleft, shiftedright), _mm_max_epu8(inputB[num_elements-1], inputC[num_elements-1]));
 }
