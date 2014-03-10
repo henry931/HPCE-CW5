@@ -76,6 +76,30 @@ uint32_t vmax(uint32_t a, uint32_t b, uint32_t c, uint32_t d)
 uint32_t vmax(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e)
 { return std::max(e, std::max(std::max(a,d),std::max(b,c))); }
 
+void unpack_blob_32(unsigned bytes, const uint64_t *pRaw, uint32_t *pUnpacked)
+{
+    for (int i=0; i<bytes/8; i++)
+    {
+        //pUnpacked[2*i] = pRaw[i] >> 32;
+        //pUnpacked[2*i+1] = pRaw[i] & 0xFFFFFFFF;
+        
+        pUnpacked[2*i+1] = pRaw[i] >> 32;
+        pUnpacked[2*i] = pRaw[i] & 0xFFFFFFFF;
+    }
+}
+
+void pack_blob_32(unsigned bytes, const uint32_t *pUnpacked, uint64_t *pRaw)
+{
+    for (int i=0; i<bytes/8; i++)
+    {
+        //pRaw[i] |= uint64_t(pUnpacked[2*i]) << 32;
+        //pRaw[i] |= uint64_t(pUnpacked[2*i+1]);
+        
+        pRaw[i] |= uint64_t(pUnpacked[2*i+1]) << 32;
+        pRaw[i] |= uint64_t(pUnpacked[2*i]);
+    }
+}
+
 void unpack_blob(unsigned w, unsigned h, unsigned bits, const uint64_t *pRaw, uint32_t *pUnpacked)
 {
 	uint64_t buffer=0;

@@ -302,6 +302,117 @@ void process_opencl(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::
     queue.enqueueReadBuffer(buffInput, CL_TRUE, 0, cbBuffer, &pixels[0]);
 }
 
+void process_opencl_packed(int levels, unsigned w, unsigned h, unsigned bits, std::vector<uint32_t> &pixels)
+{
+    auto cl_instance = init_cl("kernels.cl");
+    
+    cl::Device device = std::tr1::get<0>(cl_instance);
+    cl::Context context = std::tr1::get<1>(cl_instance);
+    cl::Program program = std::tr1::get<2>(cl_instance);
+    
+    size_t cbBuffer=(w*h*bits)/8;
+    
+    cl::Buffer buffInput(context, CL_MEM_READ_WRITE, cbBuffer);
+	cl::Buffer buffOutput(context, CL_MEM_READ_WRITE, cbBuffer);
+    
+    std::string erodeKernelName;
+    std::string dilateKernelName;
+    
+    switch (bits) {
+        case 1:
+            erodeKernelName = "erode_kernel_1";
+            dilateKernelName = "dilate_kernel_1";
+            break;
+        case 2:
+            erodeKernelName = "erode_kernel_2";
+            dilateKernelName = "dilate_kernel_2";
+            break;
+        case 4:
+            erodeKernelName = "erode_kernel_4";
+            dilateKernelName = "dilate_kernel_4";
+            break;
+        case 8:
+            erodeKernelName = "erode_kernel_8";
+            dilateKernelName = "dilate_kernel_8";
+            break;
+        case 16:
+            erodeKernelName = "erode_kernel_16";
+            dilateKernelName = "dilate_kernel_16";
+            break;
+        case 32:
+            erodeKernelName = "erode_kernel_32";
+            dilateKernelName = "dilate_kernel_32";
+            break;
+        default:
+            break;
+    }
+    
+    cl::Kernel erodeKernel(program, erodeKernelName.c_str());
+    cl::Kernel dilateKernel(program, dilateKernelName.c_str());
+    
+    cl::CommandQueue queue(context, device);
+    
+    queue.enqueueWriteBuffer(buffInput, CL_TRUE, 0, cbBuffer, &pixels[0]);
+    
+    cl::NDRange offset(0, 0);				 // Always start iterations at x=0, y=0
+    cl::NDRange globalSize((w*bits)/32, h);  // Global size must match the original loops
+    cl::NDRange localSize=cl::NullRange;	 // We don't care about local size
+    
+    if (levels < 0)
+    {
+        for(unsigned t=0;t<abs(levels);t++){
+            
+            erodeKernel.setArg(0, buffInput);
+            erodeKernel.setArg(1, buffOutput);
+            
+            queue.enqueueNDRangeKernel(erodeKernel, offset, globalSize, localSize);
+            
+            queue.enqueueBarrier();
+            
+            std::swap(buffInput, buffOutput);
+        }
+        for(unsigned t=0;t<abs(levels);t++){
+            
+            dilateKernel.setArg(0, buffInput);
+            dilateKernel.setArg(1, buffOutput);
+            
+            queue.enqueueNDRangeKernel(dilateKernel, offset, globalSize, localSize);
+            
+            queue.enqueueBarrier();
+            
+            std::swap(buffInput, buffOutput);
+        }
+    }
+    else
+    {
+        for(unsigned t=0;t<abs(levels);t++){
+            
+            dilateKernel.setArg(0, buffInput);
+            dilateKernel.setArg(1, buffOutput);
+            
+            queue.enqueueNDRangeKernel(dilateKernel, offset, globalSize, localSize);
+            
+            queue.enqueueBarrier();
+            
+            std::swap(buffInput, buffOutput);
+        }
+        for(unsigned t=0;t<abs(levels);t++){
+            
+            erodeKernel.setArg(0, buffInput);
+            erodeKernel.setArg(1, buffOutput);
+            
+            queue.enqueueNDRangeKernel(erodeKernel, offset, globalSize, localSize);
+            
+            queue.enqueueBarrier();
+            
+            std::swap(buffInput, buffOutput);
+        }
+    }
+    
+    queue.enqueueReadBuffer(buffInput, CL_TRUE, 0, cbBuffer, &pixels[0]);
+
+}
+
 void transform(int levels, unsigned w, unsigned h, unsigned bits)
 {
     size_t cbBuffer=3*4*w;

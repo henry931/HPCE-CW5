@@ -18,4 +18,6 @@ void process(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<
 
 void process_opencl(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);
 
+void process_opencl_packed(int levels, unsigned w, unsigned h, unsigned bits, std::vector<uint32_t> &pixels);
+
 void transform(int levels, unsigned w, unsigned h, unsigned bits);
