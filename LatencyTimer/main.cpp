@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <queue>
+#include <iostream>
 
 int is_ready(int fd) {
     fd_set fdset;
@@ -17,8 +18,17 @@ int is_ready(int fd) {
 
 int main(int argc, const char * argv[])
 {
-    char out = 'x';
-    char in = 'a';
+    if(argc<3){
+        fprintf(stderr, "Usage: width bits\n");
+        exit(1);
+    }
+    
+    unsigned w=atoi(argv[1]);
+    unsigned bits=atoi(argv[2]);
+    
+    unsigned batchSize = (w*bits)/32;
+    
+    char* out = new char[batchSize];
     
     std::deque<timeval*> ts_queue;
     std::deque<timeval*> old;
@@ -30,8 +40,12 @@ int main(int argc, const char * argv[])
     
     int bytesOutstanding = 0;
     
+    int got = 0;
+    
     while(1)
     {
+        got = write(1, out, batchSize);
+        
         timeval* t;
         
         if (old.empty()) {
@@ -45,15 +59,18 @@ int main(int argc, const char * argv[])
         
         gettimeofday(t, NULL);
         
-        bytesOutstanding += write(1, &out, 1);
-        
         ts_queue.push_back(t);
+        
+        bytesOutstanding += got;
+        
         
         while(is_ready(fileno(stdin)))
         {
             if (ts_queue.empty()) break;
             
-            bytesOutstanding -= read(0, &in, 1);
+            got = read(0, out, batchSize);
+            
+            bytesOutstanding -= got;
             
             gettimeofday(&t_valAfter, NULL);
             

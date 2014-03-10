@@ -1,5 +1,3 @@
-//TODO: Reverse other kernels
-
 uint min2(uint a,uint b)
 {
     uint mask = 0xC0000000;
@@ -197,22 +195,13 @@ __kernel void erode_kernel_32(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0xFFFFFFFF;
-    if(y < h-1) below = input[index+w];
-    else below = 0xFFFFFFFF;
-    if (x > 0) left = input[index-1];
-    else left = 0xFFFFFFFF;
-    if (x < w-1) right = input[index+1];
-    else right = 0xFFFFFFFF;
+    uint above = input[(index-w) & -((index-w) > 0)]  | -(y == 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] | -(y == h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  | -(x == 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] | -(x == w-1);
     
     output[index] = min(min(min(above,below),min(left,right)),input[index]);
-
+    
 }
 
 __kernel void dilate_kernel_32(__global uint* input,__global uint* output)
@@ -225,19 +214,10 @@ __kernel void dilate_kernel_32(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0x0;
-    if(y < h-1) below = input[index+w];
-    else below = 0x0;
-    if (x > 0) left = input[index-1];
-    else left = 0x0;
-    if (x < w-1) right = input[index+1];
-    else right = 0x0;
+    uint above = input[(index-w) & -((index-w) > 0)]  & -(y != 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] & -(y != h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  & -(x != 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] & -(x != w-1);
     
     output[index] = max(max(max(above,below),max(left,right)),input[index]);
     
@@ -253,27 +233,18 @@ __kernel void erode_kernel_1(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0xFFFFFFFF;
-    if(y < h-1) below = input[index+w];
-    else below = 0xFFFFFFFF;
-    if (x > 0) left = input[index-1];
-    else left = 0xFFFFFFFF;
-    if (x < w-1) right = input[index+1];
-    else right = 0xFFFFFFFF;
+    uint above = input[(index-w) & -((index-w) > 0)]  | -(y == 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] | -(y == h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  | -(x == 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] | -(x == w-1);
     
     uint center = input[index];
     
-    center &= ((center << 1) | ((right >> 31) & 0x1));
-    center &= ((center >> 1) | ((left & 0x1) << 31));
+    center &= ((center << 1) | ((left >> 31) & 0x1));
+    center &= ((center >> 1) | ((right & 0x1) << 31));
     center &= above;
     center &= below;
-
+    
     output[index] = center;
 }
 
@@ -287,29 +258,20 @@ __kernel void dilate_kernel_1(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0x0;
-    if(y < h-1) below = input[index+w];
-    else below = 0x0;
-    if (x > 0) left = input[index-1];
-    else left = 0x0;
-    if (x < w-1) right = input[index+1];
-    else right = 0x0;
+    uint above = input[(index-w) & -((index-w) > 0)]  & -(y != 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] & -(y != h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  & -(x != 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] & -(x != w-1);
     
     uint center = input[index];
     
-    center |= ((center << 1) | ((right >> 31) & 0x1));
-    center |= ((center >> 1) | ((left & 0x1) << 31));
+    center |= ((center << 1) | ((left >> 31) & 0x1));
+    center |= ((center >> 1) | ((right & 0x1) << 31));
     center |= above;
     center |= below;
     
     output[index] = center;
-
+    
 }
 
 __kernel void erode_kernel_2(__global uint* input,__global uint* output)
@@ -322,24 +284,15 @@ __kernel void erode_kernel_2(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0xFFFFFFFF;
-    if(y < h-1) below = input[index+w];
-    else below = 0xFFFFFFFF;
-    if (x > 0) left = input[index-1];
-    else left = 0xFFFFFFFF;
-    if (x < w-1) right = input[index+1];
-    else right = 0xFFFFFFFF;
+    uint above = input[(index-w) & -((index-w) > 0)]  | -(y == 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] | -(y == h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  | -(x == 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] | -(x == w-1);
     
     uint center = input[index];
     
-    center = min2(center, (center << 2) | ((right >> 30) & 0x3));
-    center = min2(center, (center >> 2) | ((left & 0x3) << 30));
+    center = min2(center, (center << 2) | ((left >> 30) & 0x3));
+    center = min2(center, (center >> 2) | ((right & 0x3) << 30));
     center = min2(center, above);
     center = min2(center, below);
     
@@ -356,24 +309,15 @@ __kernel void dilate_kernel_2(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0x0;
-    if(y < h-1) below = input[index+w];
-    else below = 0x0;
-    if (x > 0) left = input[index-1];
-    else left = 0x0;
-    if (x < w-1) right = input[index+1];
-    else right = 0x0;
+    uint above = input[(index-w) & -((index-w) > 0)]  & -(y != 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] & -(y != h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  & -(x != 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] & -(x != w-1);
     
     uint center = input[index];
     
-    center = max2(center, (center << 2) | ((right >> 30) & 0x3));
-    center = max2(center, (center >> 2) | ((left & 0x3) << 30));
+    center = max2(center, (center << 2) | ((left >> 30) & 0x3));
+    center = max2(center, (center >> 2) | ((right & 0x3) << 30));
     center = max2(center, above);
     center = max2(center, below);
     
@@ -390,27 +334,18 @@ __kernel void erode_kernel_4(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0xFFFFFFFF;
-    if(y < h-1) below = input[index+w];
-    else below = 0xFFFFFFFF;
-    if (x > 0) left = input[index-1];
-    else left = 0xFFFFFFFF;
-    if (x < w-1) right = input[index+1];
-    else right = 0xFFFFFFFF;
+    uint above = input[(index-w) & -((index-w) > 0)]  | -(y == 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] | -(y == h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  | -(x == 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] | -(x == w-1);
     
     uint center = input[index];
-
-    center = min4(center, (center << 4) | ((right >> 28) & 0xF));
-    center = min4(center, (center >> 4) | ((left & 0xF) << 28));
+    
+    center = min4(center, (center << 4) | ((left >> 28) & 0xF));
+    center = min4(center, (center >> 4) | ((right & 0xF) << 28));
     center = min4(center, above);
     center = min4(center, below);
-        
+    
     output[index] = center;
 }
 
@@ -424,24 +359,15 @@ __kernel void dilate_kernel_4(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0x0;
-    if(y < h-1) below = input[index+w];
-    else below = 0x0;
-    if (x > 0) left = input[index-1];
-    else left = 0x0;
-    if (x < w-1) right = input[index+1];
-    else right = 0x0;
+    uint above = input[(index-w) & -((index-w) > 0)]  & -(y != 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] & -(y != h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  & -(x != 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] & -(x != w-1);
     
     uint center = input[index];
-
-    center = max4(center, (center << 4) | ((right >> 28) & 0xF));
-    center = max4(center, (center >> 4) | ((left & 0xF) << 28));
+    
+    center = max4(center, (center << 4) | ((left >> 28) & 0xF));
+    center = max4(center, (center >> 4) | ((right & 0xF) << 28));
     center = max4(center, above);
     center = max4(center, below);
     
@@ -458,19 +384,10 @@ __kernel void erode_kernel_8(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0xFFFFFFFF;
-    if(y < h-1) below = input[index+w];
-    else below = 0xFFFFFFFF;
-    if (x > 0) left = input[index-1];
-    else left = 0xFFFFFFFF;
-    if (x < w-1) right = input[index+1];
-    else right = 0xFFFFFFFF;
+    uint above = input[(index-w) & -((index-w) > 0)]  | -(y == 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] | -(y == h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  | -(x == 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] | -(x == w-1);
     
     uint center = input[index];
     
@@ -493,19 +410,10 @@ __kernel void dilate_kernel_8(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0x0;
-    if(y < h-1) below = input[index+w];
-    else below = 0x0;
-    if (x > 0) left = input[index-1];
-    else left = 0x0;
-    if (x < w-1) right = input[index+1];
-    else right = 0x0;
+    uint above = input[(index-w) & -((index-w) > 0)]  & -(y != 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] & -(y != h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  & -(x != 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] & -(x != w-1);
     
     uint center = input[index];
     
@@ -528,24 +436,15 @@ __kernel void erode_kernel_16(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0xFFFFFFFF;
-    if(y < h-1) below = input[index+w];
-    else below = 0xFFFFFFFF;
-    if (x > 0) left = input[index-1];
-    else left = 0xFFFFFFFF;
-    if (x < w-1) right = input[index+1];
-    else right = 0xFFFFFFFF;
+    uint above = input[(index-w) & -((index-w) > 0)]  | -(y == 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] | -(y == h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  | -(x == 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] | -(x == w-1);
     
     uint center = input[index];
     
-    center = min16(center, (center << 16) | ((right >> 16) & 0xFFFF));
-    center = min16(center, (center >> 16) | ((left & 0xFFFF) << 16));
+    center = min16(center, (center << 16) | ((left >> 16) & 0xFFFF));
+    center = min16(center, (center >> 16) | ((right & 0xFFFF) << 16));
     center = min16(center, above);
     center = min16(center, below);
     
@@ -562,24 +461,15 @@ __kernel void dilate_kernel_16(__global uint* input,__global uint* output)
     
     uint index=y*w + x;
     
-    uint above;
-    uint below;
-    uint left;
-    uint right;
-    
-    if(y > 0) above = input[index-w];
-    else above = 0x0;
-    if(y < h-1) below = input[index+w];
-    else below = 0x0;
-    if (x > 0) left = input[index-1];
-    else left = 0x0;
-    if (x < w-1) right = input[index+1];
-    else right = 0x0;
+    uint above = input[(index-w) & -((index-w) > 0)]  & -(y != 0);
+    uint below = input[(w*h-1) ^ (((index+w) ^ (w*h-1)) & -((index+w) < (w*h-1)))] & -(y != h-1);
+    uint left =  input[(index-1) & -((index-1) > 0)]  & -(x != 0);
+    uint right = input[(w*h-1) ^ (((index+1) ^ (w*h-1)) & -((index+1) < (w*h-1)))] & -(x != w-1);
     
     uint center = input[index];
     
-    center = max16(center, (center << 16) | ((right >> 16) & 0xFFFF));
-    center = max16(center, (center >> 16) | ((left & 0xFFFF) << 16));
+    center = max16(center, (center << 16) | ((left >> 16) & 0xFFFF));
+    center = max16(center, (center >> 16) | ((right & 0xFFFF) << 16));
     center = max16(center, above);
     center = max16(center, below);
     

@@ -30,8 +30,8 @@ int main(int argc, char *argv[])
 	_sopen_s(&STDIN_FILENO, "input.raw", _O_BINARY | _O_RDONLY, _SH_DENYWR, _S_IREAD);
 	_sopen_s(&STDOUT_FILENO , "output.raw", _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, _SH_DENYRD, _S_IWRITE);
 	#else
-	freopen("input.raw", "r", stdin);
-	freopen("output.raw", "w", stdout);
+	//freopen("input.raw", "r", stdin);
+	//freopen("output.raw", "w", stdout);
 	#endif
     //TODO: REMOVE BEFORE SUBMIT
     
@@ -71,39 +71,11 @@ int main(int argc, char *argv[])
 		}
 		
 		fprintf(stderr, "Processing %d x %d image with %d bits per pixel.\n", w, h, bits);
-		
-		uint64_t cbRaw=uint64_t(w)*h*bits/8;
-		std::vector<uint64_t> raw(cbRaw/8);
-        //std::vector<uint64_t> rawLegacy(cbRaw/8);
-        
-		std::vector<uint32_t> pixels(cbRaw/4);
-        //std::vector<uint32_t> pixelslegacy(uint64_t(w)*h);
-        
-		while(1){
-			if(!read_blob(STDIN_FILENO, cbRaw, &raw[0]))
-				break;	// No more images
-			
-            unpack_blob_32(cbRaw, &raw[0], &pixels[0]);
-            
-            //unpack_blob(w, h, bits, &raw[0], &pixelslegacy[0]);
-			
-            process_opencl_packed(levels, w, h, bits, pixels);
-            
-			//process(levels, w, h, bits, pixelslegacy);
-			//invert(levels, w, h, bits, pixels);
-			
-            pack_blob_32(cbRaw, &pixels[0], &raw[0]);
-            
-			//pack_blob(w, h, bits, &pixelslegacy[0], &rawLegacy[0]);
-			
-            write_blob(STDOUT_FILENO, cbRaw, &raw[0]);
-		}
-        
-        //transform(w,h,bits,levels); // This is where the magic happens.
-        
-        
+
+        transform(levels,w,h,bits);
         
 		return 0;
+        
 	}catch(std::exception &e){
 		std::cerr<<"Caught exception : "<<e.what()<<"\n";
 		return 1;

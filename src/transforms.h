@@ -10,14 +10,11 @@
 
 // Shared Headers
 #include <vector>
-
-void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output);
-void dilate(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output);
-
-void process(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);
-
-void process_opencl(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);
-
-void process_opencl_packed(int levels, unsigned w, unsigned h, unsigned bits, std::vector<uint32_t> &pixels);
+#include <tr1/tuple>
+#include "CL/cl.hpp"
 
 void transform(int levels, unsigned w, unsigned h, unsigned bits);
+
+void process_opencl_packed(int levels, unsigned w, unsigned h, unsigned bits, std::vector<uint32_t> &pixels, std::tr1::tuple<cl::Device,cl::Context,cl::Program> cl_instance);
+
+std::tr1::tuple<cl::Device,cl::Context,cl::Program> init_cl(std::string source);

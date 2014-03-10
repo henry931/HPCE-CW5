@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 
-#define batchsize 1000
+#define batchsize 2097152
 
 int main(int argc, const char * argv[])
 {
@@ -27,7 +27,7 @@ int main(int argc, const char * argv[])
             int got = read(0, out, batchsize);
             done += got;
         }
-        usleep(40000);
+        usleep(0);
         done = 0;
         while (done < batchsize)
         {
