@@ -23,7 +23,7 @@
 #include <streambuf>
 #include <iostream>
 #include <tr1/tuple>
-
+#include <sys/time.h>
 
 #include "transforms.h"
 #include "utilities.h"
@@ -33,7 +33,28 @@
 
 #include "CL/cl.hpp"
 
-std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,cl::NDRange,cl::NDRange,cl::NDRange> init_cl(int levels, unsigned w, unsigned h, unsigned bits, std::string source)
+int enumerate_cl_devices()
+{
+    std::vector<cl::Platform> platforms;
+    
+	cl::Platform::get(&platforms);
+	
+    if(platforms.size()==0) return 0;
+    
+    int selectedPlatform=0;
+	if(getenv("HPCE_SELECT_PLATFORM")){
+		selectedPlatform=atoi(getenv("HPCE_SELECT_PLATFORM"));
+	}
+    
+	cl::Platform platform=platforms.at(selectedPlatform);
+    
+    std::vector<cl::Device> devices;
+	platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
+	
+    return devices.size();
+}
+
+std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,cl::NDRange,cl::NDRange,cl::NDRange> init_cl(int levels, unsigned w, unsigned h, unsigned bits, std::string source, int deviceNumber)
 {
     std::vector<cl::Platform> platforms;
     
@@ -66,12 +87,10 @@ std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,
 		std::cerr<<"  Device "<<i<<" : "<<name<<"\n";
 	}
     
-    //TODO: Automatic device selection based on startup perfomance test
-    
     int selectedDevice=0;
-	if(getenv("HPCE_SELECT_DEVICE")){
-		selectedDevice=atoi(getenv("HPCE_SELECT_DEVICE"));
-	}
+    
+    if (deviceNumber != -1) selectedDevice = deviceNumber;
+    
 	std::cerr<<"Choosing device "<<selectedDevice<<"\n";
 	cl::Device device=devices.at(selectedDevice);
     
@@ -148,6 +167,76 @@ std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,
     return std::tr1::make_tuple(erodeKernel,dilateKernel,gpuBuffers,queue,offset,globalSize,localSize);
 }
 
+int test_cl_devices(int levels, unsigned w, unsigned h, unsigned bits, std::string source)
+{
+    std::vector<cl::Platform> platforms;
+    
+	cl::Platform::get(&platforms);
+	
+    if(platforms.size()==0) throw std::runtime_error("No OpenCL platforms found.");
+    
+    int selectedPlatform=0;
+	if(getenv("HPCE_SELECT_PLATFORM")){
+		selectedPlatform=atoi(getenv("HPCE_SELECT_PLATFORM"));
+	}
+
+	cl::Platform platform=platforms.at(selectedPlatform);
+    
+    std::vector<cl::Device> devices;
+	platform.getDevices(CL_DEVICE_TYPE_ALL, &devices);
+	if(devices.size()==0){
+		throw std::runtime_error("No opencl devices found.\n");
+	}
+    
+    uint64_t best = 0xFFFFFFFFFFFFFFFFul;
+    int best_device = -1;
+    
+	for(unsigned i=0;i<devices.size();i++){
+        uint64_t microseconds = 0xFFFFFFFFFFFFFFFFul;
+        bool failedAttempt = false;
+        
+        try {
+            uint64_t cbinput=uint64_t(w)*bits/8;
+            
+            std::vector<uint32_t> gpuReadOffsets(2*levels+1,0);
+            std::vector<uint32_t> gpuWriteOffsets(2*levels+1,0);
+            
+            std::vector<uint32_t> aboveOverrides(2*levels,0);
+            std::vector<uint32_t> belowOverrides(2*levels,0);
+            
+            std::vector<uint32_t> unpackedInput(2*(cbinput/4));
+            std::vector<uint32_t> unpackedOutput(2*(cbinput/4));
+            uint32_t* unpackedInputReadptr = &unpackedInput[cbinput/4];
+            uint32_t* unpackedOutputWriteptr = &unpackedOutput[0];
+            
+            auto cl_instance = init_cl(levels,w,h,bits,"pipeline_kernels.cl",i);
+            
+            timeval before, after;
+            
+            gettimeofday(&before, NULL);
+            
+            for(int i=0; i<100; i++)
+            {
+                process_opencl_packed_line(levels, w, bits, gpuReadOffsets, gpuWriteOffsets, unpackedInputReadptr, unpackedOutputWriteptr, aboveOverrides, belowOverrides, cl_instance);
+            }
+            
+            gettimeofday(&after, NULL);
+            
+            microseconds =(after.tv_sec - before.tv_sec)*1000000L + after.tv_usec - before.tv_usec;
+            
+        } catch (std::exception) {
+            failedAttempt = true;
+        }
+        if (failedAttempt) continue;
+        if (microseconds < best) {
+            best_device = i;
+            best = microseconds;
+        }
+	}
+    
+    return best_device;
+}
+
 void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vector<uint32_t>& gpuReadOffsets, std::vector<uint32_t>& gpuWriteOffsets, uint32_t* pixelsIn, uint32_t* pixelsOut,std::vector<uint32_t> aboveOverrides,std::vector<uint32_t> belowOverrides,std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,cl::NDRange,cl::NDRange,cl::NDRange> cl_instance)
 {
     size_t cbBuffer=(w*bits)/8;
@@ -218,7 +307,7 @@ void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vecto
     queue.enqueueBarrier();
 }
 
-void transform(int levels, unsigned w, unsigned h, unsigned bits)
+void transform(int deviceNumber, int levels, unsigned w, unsigned h, unsigned bits)
 {
     uint64_t cbinput=uint64_t(w)*bits/8;
     
@@ -254,13 +343,13 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
         gpuWriteOffsets[i] = j;
         
         j+= 2;
-        j = j - (4 & -(j >= 4));   // Overblown here, but useful later.
-        j = j + (4 & -(j < 0));    // Overblown here, but useful later.
+        j = j - (4 & -(j >= 4));
+        j = j + (4 & -(j < 0));
         
         gpuReadOffsets[i] = j;
     }
     
-    auto cl_instance = init_cl(levels,w,h,bits,"pipeline_kernels.cl");
+    auto cl_instance = init_cl(levels,w,h,bits,"pipeline_kernels.cl",deviceNumber);
     
     tbb::task_group group;
     

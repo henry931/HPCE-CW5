@@ -21,6 +21,7 @@
 #include "utilities.h"
 #include "transforms.h"
 
+#define WIDE_MODE_THRESHOLD 1048576
 
 int main(int argc, char *argv[])
 {
@@ -71,8 +72,29 @@ int main(int argc, char *argv[])
 		}
 		
 		fprintf(stderr, "Processing %d x %d image with %d bits per pixel.\n", w, h, bits);
-
-        transform(levels,w,h,bits);
+        
+        int cl_device_count = enumerate_cl_devices();
+        
+        if (w >= WIDE_MODE_THRESHOLD && cl_device_count > 0 && h > 4*levels+6)
+        {
+            int deviceNumber = -1;
+            
+            deviceNumber = test_cl_devices(levels, w, h, bits, "pipeline_kernels.cl");
+            
+            if (deviceNumber != -1)
+            {
+                transform(deviceNumber,levels,w,h,bits);
+            }
+            else
+            {
+                // SIMD mode here.
+            }
+            
+        }
+        else
+        {
+            // SIMD mode here.
+        }
         
 		return 0;
         
