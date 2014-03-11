@@ -1,15 +1,3 @@
-// Header files for windows compilation
-#ifdef _WIN32
-#include <io.h>
-#include <stdint.h>
-#include <fcntl.h> 
-#include <sys/stat.h>
-
-// Header files for OSX compilation
-#else
-#include <unistd.h>
-#endif
-
 // Shared Headers
 #include <algorithm>
 #include <stdexcept>
@@ -18,23 +6,43 @@
 #include <iostream>
 #include <string>
 
+// Header files for windows compilation
+#ifdef _WIN32
+#include <io.h>
+#include <stdint.h>
+#include <fcntl.h> 
+#include <sys/stat.h>
+
+#define read _read
+#define write _write
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
+
+void set_binary_io()
+{
+	_setmode(_fileno(stdin), _O_BINARY);
+	_setmode(_fileno(stdout), _O_BINARY);
+}
+
+// Header files for OSX compilation
+#else
+#include <unistd.h>
+
+void set_binary_io()
+{}
+
+#endif
+
 #include "utilities.h"
 #include "transforms.h"
+#include "recursive_sse.h"
 
 #define WIDE_MODE_THRESHOLD 1048576
 
 int main(int argc, char *argv[])
 {
-	//TODO: REMOVE BEFORE SUBMIT
-	#ifdef _WIN32
-	int STDIN_FILENO, STDOUT_FILENO;
-	_sopen_s(&STDIN_FILENO, "input.raw", _O_BINARY | _O_RDONLY, _SH_DENYWR, _S_IREAD);
-	_sopen_s(&STDOUT_FILENO , "output.raw", _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, _SH_DENYRD, _S_IWRITE);
-	#else
-	freopen("input.raw", "r", stdin);
-	freopen("output.raw", "w", stdout);
-	#endif
-    //TODO: REMOVE BEFORE SUBMIT
+	// Windows needs to be set for binary mode IO
+	set_binary_io();
     
     try{
 		if(argc<3){
@@ -77,6 +85,8 @@ int main(int argc, char *argv[])
         
         if (w >= WIDE_MODE_THRESHOLD && cl_device_count > 0 && h > 4*levels+6)
         {
+            fprintf(stderr, "Attempting to use OpenCL for wide image.\n");
+            
             int deviceNumber = -1;
             
             deviceNumber = test_cl_devices(levels, w, h, bits, "pipeline_kernels.cl");
@@ -87,13 +97,13 @@ int main(int argc, char *argv[])
             }
             else
             {
-                // SIMD mode here.
+                process_recursive_sse(bits, levels, w, h, STDIN_FILENO, STDOUT_FILENO);
             }
             
         }
         else
         {
-            // SIMD mode here.
+            process_recursive_sse(bits, levels, w, h, STDIN_FILENO, STDOUT_FILENO);
         }
         
 		return 0;

@@ -7,6 +7,7 @@
 #include <iostream>
 
 int is_ready(int fd) {
+    // Taken from: http://stackoverflow.com/questions/1594251/how-to-check-if-stdin-is-still-opened-without-blocking
     fd_set fdset;
     struct timeval timeout;
     FD_ZERO(&fdset);
@@ -18,17 +19,7 @@ int is_ready(int fd) {
 
 int main(int argc, const char * argv[])
 {
-    if(argc<3){
-        fprintf(stderr, "Usage: width bits\n");
-        exit(1);
-    }
-    
-    unsigned w=atoi(argv[1]);
-    unsigned bits=atoi(argv[2]);
-    
-    unsigned batchSize = (w*bits)/32;
-    
-    char* out = new char[batchSize];
+    char out = 'x';
     
     std::deque<timeval*> ts_queue;
     std::deque<timeval*> old;
@@ -44,7 +35,7 @@ int main(int argc, const char * argv[])
     
     while(1)
     {
-        got = write(1, out, batchSize);
+        got = write(1, &out, 1);
         
         timeval* t;
         
@@ -68,7 +59,7 @@ int main(int argc, const char * argv[])
         {
             if (ts_queue.empty()) break;
             
-            got = read(0, out, batchSize);
+            got = read(0, &out, 1);
             
             bytesOutstanding -= got;
             
