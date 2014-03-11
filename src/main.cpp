@@ -76,6 +76,7 @@ int main(int argc, char *argv[])
 		else if(bits == 4)	process_recursive_sse_4(levels, w, h,STDIN_FILENO,STDOUT_FILENO);
 		else if(bits == 2)	process_recursive_sse_2(levels, w, h,STDIN_FILENO,STDOUT_FILENO);
 		else if(bits == 1)	process_recursive_sse_1(levels, w, h,STDIN_FILENO,STDOUT_FILENO);
+		else if(bits == 16)	process_recursive_sse_16(levels, w, h,STDIN_FILENO,STDOUT_FILENO);
 
 		return 0;
 

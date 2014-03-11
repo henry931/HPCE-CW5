@@ -23,11 +23,12 @@
 
 // SSE instructions used - http://software.intel.com/sites/landingpage/IntrinsicsGuide/
 /*
-_mm_setr_epi8		SSE2	Set packed values
+_mm_setr_epi8		SSE2	Set packed values (8-bit)
 _mm_slli_si128		SSE2	Shift left by n bytes
 _mm_srli_si128		SSE2	Shift right by n bytes
 _mm_min_epu8		SSE2	Find minimum
 _mm_max_epu8		SSE2	Find maximum
+_mm_set_epi16		SSE2	Set packed values (16-bit)
 */
 
 //////////////////////////// 8-Bit ////////////////////////////////////////
@@ -2029,6 +2030,496 @@ void process_recursive_sse_1(const int levels, const unsigned w, const unsigned 
 
 	// While for video
 	while(process_recursive_function_sse_1(reclevel, w, h, inputhandle, outputhandle, pixelsA, pixelsB, pixelsC, line, outbuff, status, reclevel) == 0)
+	{
+		// Reset input status
+		for(int i = 0; i < 2*std::abs(levels); i++){
+			line[i] = 0;
+		};
+	}
+
+	return;
+
+}
+
+//////////////////////////// 16-Bit ////////////////////////////////////////
+
+__m128i min16(__m128i a, __m128i b)
+{
+	__m128i altzero, bltzero, xor, signedmin, signedmax, resultsame, resultdiff;
+
+	altzero = _mm_cmplt_epi16(a, _mm_set1_epi16(0));
+	bltzero = _mm_cmplt_epi16(b, _mm_set1_epi16(0));
+	xor = _mm_xor_si128(altzero, bltzero);
+	signedmin = _mm_min_epi16(a, b);
+	signedmax = _mm_max_epi16(a, b);
+	resultsame = _mm_andnot_si128(xor, signedmin);
+	resultdiff = _mm_and_si128(xor, signedmax);
+	return _mm_or_si128(resultsame, resultdiff);
+}
+
+__m128i max16(__m128i a, __m128i b)
+{
+	__m128i altzero, bltzero, xor, signedmin, signedmax, resultsame, resultdiff;
+
+	altzero = _mm_cmplt_epi16(a, _mm_set1_epi16(0));
+	bltzero = _mm_cmplt_epi16(b, _mm_set1_epi16(0));
+	xor = _mm_xor_si128(altzero, bltzero);
+	signedmin = _mm_min_epi16(a, b);
+	signedmax = _mm_max_epi16(a, b);
+	resultsame = _mm_andnot_si128(xor, signedmax);
+	resultdiff = _mm_and_si128(xor, signedmin);
+	return _mm_or_si128(resultsame, resultdiff);
+}
+
+void packandwriteline_sse_16(unsigned w, __m128i *input, int fd)
+{
+	// Minimum width is 4
+
+	// Size of one line
+	uint64_t cbLine=uint64_t(2*w);
+
+	// Raw buffer for conversion
+	std::vector<uint64_t> raw(cbLine/8);
+
+	const uint64_t MASK=0x000000000000FFFFULL;
+
+	uint64_t done=0;
+
+	for(unsigned i=0;i<w/8;i++){
+
+		uint16_t *input_ptr = (uint16_t*) &input[i];
+
+		raw[2*i]=raw[2*i] | (uint64_t(input_ptr[0]&MASK)<< 0);
+		raw[2*i]=raw[2*i] | (uint64_t(input_ptr[1]&MASK)<< 16);
+		raw[2*i]=raw[2*i] | (uint64_t(input_ptr[2]&MASK)<< 32);
+		raw[2*i]=raw[2*i] | (uint64_t(input_ptr[3]&MASK)<< 48);
+
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input_ptr[4]&MASK)<< 0);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input_ptr[5]&MASK)<< 16);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input_ptr[6]&MASK)<< 32);
+		raw[2*i+1]=raw[2*i+1] | (uint64_t(input_ptr[7]&MASK)<< 48);
+	}
+
+	if(w%8 == 4) // This is a possible case by the specifications
+	{
+		unsigned index = w/8;
+		unsigned index_raw = 2*index; // We need to use index so it rounds down 
+
+		uint16_t *input_ptr = (uint16_t*) &input[index];
+
+		raw[index_raw]=raw[index_raw] | (uint64_t(input_ptr[0]&MASK)<< 0);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input_ptr[1]&MASK)<< 16);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input_ptr[2]&MASK)<< 32);
+		raw[index_raw]=raw[index_raw] | (uint64_t(input_ptr[3]&MASK)<< 48);
+	}
+
+	while(done<cbLine){
+		int todo=(int)std::min(uint64_t(1)<<30, cbLine-done);
+
+		int got=write(fd, &raw[0]+done, todo);
+		if(got<=0)
+			throw std::invalid_argument("Write failure.");
+		done+=got;
+	}
+}
+
+int readandunpack_sse_16(unsigned w, int fd, __m128i *output)
+{
+	// Size of one line
+	uint64_t cbLine=uint64_t(2*w);
+
+	// Raw buffer for conversion
+	std::vector<uint64_t> raw(cbLine/8);
+
+	uint64_t done=0;
+	while(done<cbLine){
+		int todo=(int)std::min(uint64_t(1)<<30, cbLine-done);
+
+		int got=read(fd, &raw[0]+done, todo);
+		if(got==0 && done==0)
+			return 5;	// end of file
+		if(got<=0)
+			throw std::invalid_argument("Read failure.");
+		done+=got;
+	}
+
+	for(unsigned i=0;i<w/8;i++){
+
+		output[i] = _mm_setr_epi16(
+			raw[2*i] & 0x000000000000FFFFULL,
+			(raw[2*i] & 0x00000000FFFF0000ULL) >> 16,
+			(raw[2*i] & 0x0000FFFF00000000ULL) >> 32,
+			(raw[2*i] & 0xFFFF000000000000ULL) >> 48,
+			raw[2*i+1] & 0x000000000000FFFFULL,
+			(raw[2*i+1] & 0x00000000FFFF0000ULL) >> 16,
+			(raw[2*i+1] & 0x0000FFFF00000000ULL) >> 32,
+			(raw[2*i+1] & 0xFFFF000000000000ULL) >> 48
+			);
+	}
+
+	if(w%8 == 4) // This is a possible case by the specifications
+	{
+		unsigned index = w/8;
+		unsigned index_raw = 2*index; // We need to use index so it rounds down 
+
+		output[index] = _mm_setr_epi16(
+			raw[index_raw] & 0x000000000000FFFFULL,
+			(raw[index_raw] & 0x00000000FFFF0000ULL) >> 16,
+			(raw[index_raw] & 0x0000FFFF00000000ULL) >> 32,
+			(raw[index_raw] & 0xFFFF000000000000ULL) >> 48,
+			0,0,0,0
+			);
+	}
+
+	return 0;
+}
+
+void erode_line_sse_16(unsigned w, const std::vector<__m128i> &inputA, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
+{
+	// Each vector element now contains 8 unsigned packed ints
+	unsigned num_elements = w/8;
+	if(w%8 == 4) num_elements++;
+
+	//Temporary buffers
+	__m128i shiftedright, shiftedleft;
+	uint16_t *shiftedright_ptr = (uint16_t*) &shiftedright;
+	uint16_t *shiftedleft_ptr = (uint16_t*) &shiftedleft;
+	uint16_t *next_container, *previous_container;
+
+	for (unsigned i = 1; i < num_elements - 1; i++)
+	{
+		previous_container = (uint16_t*) &inputB[i-1];
+		next_container = (uint16_t*) &inputB[i+1];
+		// Shift self so we can find minimum
+		shiftedright = _mm_slli_si128(inputB[i], 2);
+		shiftedleft = _mm_srli_si128(inputB[i], 2);
+		// Need to bring in int from next element in vector
+		shiftedright_ptr[0] = previous_container[7];
+		shiftedleft_ptr[7] = next_container[0];
+		// Get minimum
+		output[i] = min16(min16(inputB[i], min16(shiftedleft, shiftedright)), min16(inputA[i], inputC[i]));
+	}
+
+	// When i = 0
+	next_container = (uint16_t*) &inputB[1];
+	// Shift self so we can find minimum
+	shiftedright = _mm_slli_si128(inputB[0], 2);
+	shiftedleft = _mm_srli_si128(inputB[0], 2);
+	// Need to bring in int from next element in vector
+	shiftedright_ptr[0] = 65535; // Nothing to bring in so assign maxmium possible value
+	shiftedleft_ptr[7] = next_container[0];
+	// Get minimum
+	output[0] = min16(min16(inputB[0], min16(shiftedleft, shiftedright)), min16(inputA[0], inputC[0]));
+
+	// When i = num_elements - 1
+	previous_container = (uint16_t*) &inputB[num_elements-2];
+	// Shift self so we can find minimum
+	shiftedright = _mm_slli_si128(inputB[num_elements-1], 2);
+	shiftedleft = _mm_srli_si128(inputB[num_elements-1], 2);
+	// Need to bring in int from next element in vector
+	shiftedright_ptr[0] = previous_container[7];
+	shiftedleft_ptr[7-w%8] = 65535; // Accounts for w%8 == 4 case
+	// Get minimum
+	output[num_elements-1] = min16(min16(inputB[num_elements-1], min16(shiftedleft, shiftedright)), min16(inputA[num_elements-1], inputC[num_elements-1]));
+}
+
+void dilate_line_sse_16(unsigned w, const std::vector<__m128i> &inputA, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
+{
+	// Each vector element now contains 16 unsigned packed ints
+	unsigned num_elements = w/8;
+	if(w%8 == 4) num_elements++;
+
+	//Temporary buffers
+	__m128i shiftedright, shiftedleft;
+	uint16_t *shiftedright_ptr = (uint16_t*) &shiftedright;
+	uint16_t *shiftedleft_ptr = (uint16_t*) &shiftedleft;
+	uint16_t *next_container, *previous_container;
+
+	for (unsigned i = 1; i < num_elements - 1; i++)
+	{
+		previous_container = (uint16_t*) &inputB[i-1];
+		next_container = (uint16_t*) &inputB[i+1];
+		// Shift self so we can find maximum
+		shiftedright = _mm_slli_si128(inputB[i], 2);
+		shiftedleft = _mm_srli_si128(inputB[i], 2);
+		// Need to bring in int from next element in vector
+		shiftedright_ptr[0] = previous_container[7];
+		shiftedleft_ptr[7] = next_container[0];
+		// Get maximum
+		output[i] = max16(max16(inputB[i], max16(shiftedleft, shiftedright)), max16(inputA[i], inputC[i]));
+	}
+
+	// When i = 0
+	next_container = (uint16_t*) &inputB[1];
+	// Shift self so we can find maximum
+	shiftedright = _mm_slli_si128(inputB[0], 2);
+	shiftedleft = _mm_srli_si128(inputB[0], 2);
+	// Need to bring in int from next element in vector
+	shiftedright_ptr[0] = 0; // Nothing to bring in so assign minmium possible value
+	shiftedleft_ptr[7] = next_container[0];
+	// Get maximum
+	output[0] = max16(max16(inputB[0], max16(shiftedleft, shiftedright)), max16(inputA[0], inputC[0]));
+
+	// When i = num_elements - 1
+	previous_container = (uint16_t*) &inputB[num_elements-2];
+	// Shift self so we can find maximum
+	shiftedright = _mm_slli_si128(inputB[num_elements-1], 2);
+	shiftedleft = _mm_srli_si128(inputB[num_elements-1], 2);
+	// Need to bring in int from next element in vector
+	shiftedright_ptr[0] = previous_container[7];
+	shiftedleft_ptr[7-w%8] = 0; // Accounts for w%8 == 4 case
+	// Get maximum
+	output[num_elements-1] = max16(max16(inputB[num_elements-1], max16(shiftedleft, shiftedright)), max16(inputA[num_elements-1], inputC[num_elements-1]));
+}
+
+void erode_line_top_sse_16(unsigned w, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
+{
+	// Each vector element now contains 16 unsigned packed ints
+	unsigned num_elements = w/8;
+	if(w%8 == 4) num_elements++;
+
+	//Temporary buffers
+	__m128i shiftedright, shiftedleft;
+	uint16_t *shiftedright_ptr = (uint16_t*) &shiftedright;
+	uint16_t *shiftedleft_ptr = (uint16_t*) &shiftedleft;
+	uint16_t *next_container, *previous_container;
+
+	for (unsigned i = 1; i < num_elements - 1; i++)
+	{
+		previous_container = (uint16_t*) &inputB[i-1];
+		next_container = (uint16_t*) &inputB[i+1];
+		// Shift self so we can find minimum
+		shiftedright = _mm_slli_si128(inputB[i], 2);
+		shiftedleft = _mm_srli_si128(inputB[i], 2);
+		// Need to bring in int from next element in vector
+		shiftedright_ptr[0] = previous_container[7];
+		shiftedleft_ptr[7] = next_container[0];
+		// Get minimum
+		output[i] = min16(min16(shiftedleft, shiftedright), min16(inputB[i], inputC[i]));
+	}
+
+	// When i = 0
+	next_container = (uint16_t*) &inputB[1];
+	// Shift self so we can find minimum
+	shiftedright = _mm_slli_si128(inputB[0], 2);
+	shiftedleft = _mm_srli_si128(inputB[0], 2);
+	// Need to bring in int from next element in vector
+	shiftedright_ptr[0] = 65535; // Nothing to bring in so assign maxmium possible value
+	shiftedleft_ptr[7] = next_container[0];
+	// Get minimum
+	output[0] = min16(min16(shiftedleft, shiftedright), min16(inputB[0], inputC[0]));
+
+	// When i = num_elements - 1
+	previous_container = (uint16_t*) &inputB[num_elements-2];
+	// Shift self so we can find minimum
+	shiftedright = _mm_slli_si128(inputB[num_elements-1], 2);
+	shiftedleft = _mm_srli_si128(inputB[num_elements-1], 2);
+	// Need to bring in int from next element in vector
+	shiftedright_ptr[0] = previous_container[7];
+	shiftedleft_ptr[7-w%8] = 65535; // Accounts for w%8 == 4 case
+	// Get minimum
+	output[num_elements-1] = min16(min16(shiftedleft, shiftedright), min16(inputB[num_elements-1], inputC[num_elements-1]));
+}
+
+void dilate_line_top_sse_16(unsigned w, const std::vector<__m128i> &inputB, const std::vector<__m128i> &inputC, std::vector<__m128i> &output)
+{
+	// Each vector element now contains 16 unsigned packed ints
+	unsigned num_elements = w/8;
+	if(w%8 == 4) num_elements++;
+
+	//Temporary buffers
+	__m128i shiftedright, shiftedleft;
+	uint16_t *shiftedright_ptr = (uint16_t*) &shiftedright;
+	uint16_t *shiftedleft_ptr = (uint16_t*) &shiftedleft;
+	uint16_t *next_container, *previous_container;
+
+	for (unsigned i = 1; i < num_elements - 1; i++)
+	{
+		previous_container = (uint16_t*) &inputB[i-1];
+		next_container = (uint16_t*) &inputB[i+1];
+		// Shift self so we can find maximum
+		shiftedright = _mm_slli_si128(inputB[i], 2);
+		shiftedleft = _mm_srli_si128(inputB[i], 2);
+		// Need to bring in int from next element in vector
+		shiftedright_ptr[0] = previous_container[7];
+		shiftedleft_ptr[7] = next_container[0];
+		// Get maximum
+		output[i] = max16(max16(shiftedleft, shiftedright), max16(inputB[i], inputC[i]));
+	}
+
+	// When i = 0
+	next_container = (uint16_t*) &inputB[1];
+	// Shift self so we can find maximum
+	shiftedright = _mm_slli_si128(inputB[0], 2);
+	shiftedleft = _mm_srli_si128(inputB[0], 2);
+	// Need to bring in int from next element in vector
+	shiftedright_ptr[0] = 0; // Nothing to bring in so assign minmium possible value
+	shiftedleft_ptr[7] = next_container[0];
+	// Get maximum
+	output[0] = max16(max16(shiftedleft, shiftedright), max16(inputB[0], inputC[0]));
+
+	// When i = num_elements - 1
+	previous_container = (uint16_t*) &inputB[num_elements-2];
+	// Shift self so we can find maximum
+	shiftedright = _mm_slli_si128(inputB[num_elements-1], 2);
+	shiftedleft = _mm_srli_si128(inputB[num_elements-1], 2);
+	// Need to bring in int from next element in vector
+	shiftedright_ptr[0] = previous_container[7];
+	shiftedleft_ptr[7-w%8] = 0; // Accounts for w%8 == 4 case
+	// Get maximum
+	output[num_elements-1] = max16(max16(shiftedleft, shiftedright), max16(inputB[num_elements-1], inputC[num_elements-1]));
+}
+
+int process_recursive_function_sse_16(unsigned recursionlevel,const unsigned w,const unsigned h,const int inputhandle,const int outputhandle, std::vector<std::vector<__m128i>> &pixelsA, std::vector<std::vector<__m128i>> &pixelsB, std::vector<std::vector<__m128i>> &pixelsC, std::vector<uint32_t> &line, std::vector<__m128i> &output, std::vector<uint32_t> &status, const uint32_t toplevel){
+
+	// Minimum width is 4
+	// Bits is 16
+
+	// Get pointers for this level to inrease readability
+	uint32_t *thisline = &line[recursionlevel];
+
+	// Pointers for circular addressing
+	__m128i *pixelptr[3] = {&pixelsA[recursionlevel][0],&pixelsB[recursionlevel][0],&pixelsC[recursionlevel][0]};
+	std::vector<__m128i> *pixelptr_vec[3] = {&pixelsA[recursionlevel],&pixelsB[recursionlevel],&pixelsC[recursionlevel]};
+
+	///////////////////////// Try to read first line into A /////////////////////////////
+	if (*thisline == 0) {
+
+		if (recursionlevel == 0){
+			if( readandunpack_sse_16 (w ,inputhandle , pixelptr[0]) != 0 )
+				return 5;	// No image
+		}
+		else{
+			if(process_recursive_function_sse_16(recursionlevel-1, w, h, inputhandle, outputhandle, pixelsA, pixelsB, pixelsC, line, *pixelptr_vec[0], status, toplevel))
+				return 5;
+		}
+
+		*thisline = *thisline + 1;
+	}
+
+	///////////////////////// Read second line into B and unpack ////////////////////////////
+	if (*thisline == 1) {
+
+		if (recursionlevel == 0){
+			readandunpack_sse_16 (w ,inputhandle , pixelptr[1]);
+		}
+		else{
+			if(process_recursive_function_sse_16(recursionlevel-1, w, h, inputhandle, outputhandle, pixelsA, pixelsB, pixelsC, line, *pixelptr_vec[1], status, toplevel))
+				return 5;
+		}
+
+		// Process first line
+		if( status[recursionlevel] == 1){
+			dilate_line_top_sse_16(w, *pixelptr_vec[0], *pixelptr_vec[1], output);
+		}
+		else if( status[recursionlevel] == 0){
+			erode_line_top_sse_16(w, *pixelptr_vec[0], *pixelptr_vec[1], output);
+		}
+
+		if (recursionlevel == toplevel){
+			// Pack and write first line
+			packandwriteline_sse_16(w, &output[0],outputhandle);
+		}
+
+		*thisline = *thisline + 1;
+
+		if (recursionlevel != toplevel){
+			return 0;
+		}
+	}
+	//////////////////////////// Steady State Section /////////////////////////////
+
+	while(*thisline < h) {
+
+		if (recursionlevel == 0){
+			readandunpack_sse_16 (w ,inputhandle , pixelptr[*thisline%3]);
+		}
+		else{
+			if(process_recursive_function_sse_16(recursionlevel-1, w, h, inputhandle, outputhandle, pixelsA, pixelsB, pixelsC, line, *pixelptr_vec[*thisline%3], status, toplevel))
+				return 5;
+		}
+
+		if( status[recursionlevel] == 1 ){
+			dilate_line_sse_16(w, *pixelptr_vec[(*thisline+1)%3], *pixelptr_vec[(*thisline+2)%3], *pixelptr_vec[*thisline%3], output);
+		}
+		else if( status[recursionlevel] == 0 ){
+			erode_line_sse_16(w, *pixelptr_vec[(*thisline+1)%3], *pixelptr_vec[(*thisline+2)%3], *pixelptr_vec[*thisline%3], output);
+		}
+
+		if (recursionlevel == toplevel){
+			packandwriteline_sse_16(w, &output[0],outputhandle);
+		}
+
+		*thisline = *thisline + 1;
+
+		if (recursionlevel != toplevel){
+			return 0;
+		}
+
+	}
+
+	/////////////////////////// Last row of pixels /////////////////////////
+
+	if( status[recursionlevel] == 1){
+		dilate_line_top_sse_16(w, *pixelptr_vec[(*thisline+2)%3], *pixelptr_vec[(*thisline+1)%3], output);
+	}
+	else if( status[recursionlevel] == 0 ){
+		erode_line_top_sse_16(w, *pixelptr_vec[(*thisline+2)%3], *pixelptr_vec[(*thisline+1)%3], output);
+	}
+
+	if (recursionlevel == toplevel){
+		packandwriteline_sse_16(w, &output[0],outputhandle);
+	}
+
+	return 0;
+
+}
+
+void process_recursive_sse_16(const int levels, const unsigned w, const unsigned h,const int inputhandle,const int outputhandle){
+
+	// Each vector element now contains 8 unsigned packed ints
+	unsigned num_elements = w/8;
+	if(w%8 == 4) num_elements++;
+
+	// Create buffers
+	// The interior vector corresponds to a row of pixels
+	// Exterior index corresponds to the recursion level
+	std::vector<std::vector<__m128i> > pixelsA(2*std::abs(levels), std::vector<__m128i>(num_elements));
+	std::vector<std::vector<__m128i> > pixelsB(2*std::abs(levels), std::vector<__m128i>(num_elements));
+	std::vector<std::vector<__m128i> > pixelsC(2*std::abs(levels), std::vector<__m128i>(num_elements));
+
+	// An integer for the start level of recursion
+	const uint32_t reclevel = 2*std::abs(levels) - 1;
+
+	// Line count (record of circular addressing status)
+	std::vector<uint32_t> line(2*std::abs(levels));
+
+	// Vector where each element signifies if process should erode or dilate
+	std::vector<uint32_t> status(2*std::abs(levels));
+
+	// 1 signifies dilate, 0 is erode
+	if (levels >= 1){
+		for(int i = 0; i < std::abs(levels); i++){
+			status[i] = 1;
+		};
+		for(int i = std::abs(levels); i < 2*std::abs(levels); i++){
+			status[i] = 0;
+		};
+	}
+	else if (levels <= -1){
+		for(int i = 0; i < std::abs(levels); i++){
+			status[i] = 0;
+		};
+		for(int i = std::abs(levels); i < 2*std::abs(levels); i++){
+			status[i] = 1;
+		};
+	}
+
+	// An output buffer
+	std::vector<__m128i> outbuff(num_elements);
+
+	// While for video
+	while(process_recursive_function_sse_16(reclevel, w, h, inputhandle, outputhandle, pixelsA, pixelsB, pixelsC, line, outbuff, status, reclevel) == 0)
 	{
 		// Reset input status
 		for(int i = 0; i < 2*std::abs(levels); i++){
