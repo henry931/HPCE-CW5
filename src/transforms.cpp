@@ -166,8 +166,8 @@ void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vecto
     {
         for(unsigned i=0;i<abs(levels);i++){
             
-            erodeKernel.setArg(0, 0x0);
-            erodeKernel.setArg(1, 0x0);
+            erodeKernel.setArg(0, aboveOverrides[i]);
+            erodeKernel.setArg(1, belowOverrides[i]);
             erodeKernel.setArg(2, gpuReadOffsets[i]);
             erodeKernel.setArg(3, gpuWriteOffsets[i+1]);
             erodeKernel.setArg(4, *gpuBuffers[i]);
@@ -177,8 +177,8 @@ void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vecto
         }
         for(unsigned i=abs(levels);i<2*abs(levels);i++){
             
-            dilateKernel.setArg(0, 0xFFFFFFFF);
-            dilateKernel.setArg(1, 0xFFFFFFFF);
+            dilateKernel.setArg(0, aboveOverrides[i]);
+            dilateKernel.setArg(1, belowOverrides[i]);
             dilateKernel.setArg(2, gpuReadOffsets[i]);
             dilateKernel.setArg(3, gpuWriteOffsets[i+1]);
             dilateKernel.setArg(4, *gpuBuffers[i]);
@@ -191,8 +191,8 @@ void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vecto
     {
         for(unsigned i=0;i<abs(levels);i++){
             
-            dilateKernel.setArg(0, 0xFFFFFFFF);
-            dilateKernel.setArg(1, 0xFFFFFFFF);
+            dilateKernel.setArg(0, aboveOverrides[i]);
+            dilateKernel.setArg(1, belowOverrides[i]);
             dilateKernel.setArg(2, gpuReadOffsets[i]);
             dilateKernel.setArg(3, gpuWriteOffsets[i+1]);
             dilateKernel.setArg(4, *gpuBuffers[i]);
@@ -202,8 +202,8 @@ void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vecto
         }
         for(unsigned i=abs(levels);i<2*abs(levels);i++){
             
-            erodeKernel.setArg(0, 0x0);
-            erodeKernel.setArg(1, 0x0);
+            erodeKernel.setArg(0, aboveOverrides[i]);
+            erodeKernel.setArg(1, belowOverrides[i]);
             erodeKernel.setArg(2, gpuReadOffsets[i]);
             erodeKernel.setArg(3, gpuWriteOffsets[i+1]);
             erodeKernel.setArg(4, *gpuBuffers[i]);
@@ -286,11 +286,24 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
     int lines_read = 0;
     int lines_written = 0;
     
-    int total_iterations = 0;
+    int image_line = 0;
     
     while(1){
         
-        total_iterations++;
+        for (int i=0; i<levels; i++) {
+            if (image_line == 4 + 2*i) aboveOverrides[i] = 0x0 ^ -(levels < 0);
+            else aboveOverrides[i] = 0xFFFFFFFF ^ -(levels < 0);
+            
+            if (image_line == 3 + 2*i) belowOverrides[i] = 0x0 ^ -(levels < 0);
+            else belowOverrides[i] = 0xFFFFFFFF ^ -(levels < 0);
+        }
+        for (int i=levels; i<2*levels; i++) {
+            if (image_line == 4 + 2*i) aboveOverrides[i] = 0xFFFFFFFF ^ -(levels < 0);
+            else aboveOverrides[i] = 0x0 ^ -(levels < 0);
+            
+            if (image_line == 3 + 2*i) belowOverrides[i] = 0xFFFFFFFF ^ -(levels < 0);
+            else belowOverrides[i] = 0x0 ^ -(levels < 0);
+        }
         
         group.run([&](){
             if(!finished && !read_blob(STDIN_FILENO, cbinput, inputWriteptr)) finished = true;
@@ -311,10 +324,6 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
                 fullness++;
             }
         });
-        
-        //group.run([&](){
-        //  unpack_blob_32(cbinput, inputReadptr, unpackedInputWriteptr);
-        //});
         
         group.run([&](){
             process_opencl_packed_line(levels, w, bits, gpuReadOffsets, gpuWriteOffsets, unpackedInputReadptr, unpackedOutputWriteptr, aboveOverrides, belowOverrides, cl_instance);
@@ -337,23 +346,6 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
             }
         });
         
-        //group.run([&](){
-        //  pack_blob_32(cbinput, unpackedOutputReadptr, outputWriteptr);
-        //});
-        
-        //group.run([&](){
-//            if (fullness >= /*8*levels+5*/ 36 || full)
-//            {
-//                full = true;
-//                write_blob(STDOUT_FILENO, cbinput, outputReadptr);
-//                lines_written++;
-//            }
-//            else
-//            {
-//                fullness++;
-//            }
-        //});
-        
         group.wait();
         
         if (tailEnd == 0) {
@@ -366,7 +358,9 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
         std::swap(unpackedOutputReadptr, unpackedOutputWriteptr);
         std::swap(outputReadptr, outputWriteptr);
         
+        image_line++;
+        if (image_line == h) image_line = 0;
     }
     
-    fprintf(stderr, "read: %d written: %d iters: %d",lines_read,lines_written,total_iterations);
+    fprintf(stderr, "read: %d written: %d iters: %d",lines_read,lines_written,image_line);
 }
