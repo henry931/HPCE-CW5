@@ -1,9 +1,9 @@
-// Header files for windows compilation
+// Header files for Windows compilation
 #ifdef _WIN32
 #include <io.h>
 #include <stdint.h>
-#include <fcntl.h> 
-#include <sys/stat.h>
+//#include <fcntl.h> 
+//#include <sys/stat.h>
 
 // Header files for OSX compilation
 #else
@@ -162,17 +162,13 @@ void erode_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std:
 	uint8_t *shiftedleft_ptr = (uint8_t*) &shiftedleft;
 	uint8_t *next_container, *previous_container;
 
-	// Masks
-	const __m128i maskright = _mm_set_epi8(14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,50);
-	const __m128i maskleft = _mm_set_epi8(50,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1);
-
 	for (unsigned i = 1; i < num_elements - 1; i++)
 	{
 		previous_container = (uint8_t*) &inputB[i-1];
 		next_container = (uint8_t*) &inputB[i+1];
 		// Shift self so we can find minimum
-		shiftedright = _mm_shuffle_epi8(inputB[i], maskright);
-		shiftedleft = _mm_shuffle_epi8(inputB[i], maskleft);
+		shiftedright = _mm_slli_si128(inputB[i], 1);
+		shiftedleft = _mm_srli_si128(inputB[i], 1);
 		// Need to bring in int from next element in vector
 		shiftedright_ptr[0] = previous_container[15];
 		shiftedleft_ptr[15] = next_container[0];
@@ -183,8 +179,8 @@ void erode_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std:
 	// When i = 0
 	next_container = (uint8_t*) &inputB[1];
 	// Shift self so we can find minimum
-	shiftedright = _mm_shuffle_epi8(inputB[0], maskright);
-	shiftedleft = _mm_shuffle_epi8(inputB[0], maskleft);
+	shiftedright = _mm_slli_si128(inputB[0], 1);
+	shiftedleft = _mm_srli_si128(inputB[0], 1);
 	// Need to bring in int from next element in vector
 	shiftedright_ptr[0] = 255; // Nothing to bring in so assign maxmium possible value
 	shiftedleft_ptr[15] = next_container[0];
@@ -194,8 +190,8 @@ void erode_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std:
 	// When i = num_elements - 1
 	previous_container = (uint8_t*) &inputB[num_elements-2];
 	// Shift self so we can find minimum
-	shiftedright = _mm_shuffle_epi8(inputB[num_elements - 1], maskright);
-	shiftedleft = _mm_shuffle_epi8(inputB[num_elements - 1], maskleft);
+	shiftedright = _mm_slli_si128(inputB[num_elements-1], 1);
+	shiftedleft = _mm_srli_si128(inputB[num_elements-1], 1);
 	// Need to bring in int from next element in vector
 	shiftedright_ptr[0] = previous_container[15];
 	shiftedleft_ptr[15-w%16] = 255; // Accounts for w%16 == 8 case
@@ -215,17 +211,13 @@ void dilate_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std
 	uint8_t *shiftedleft_ptr = (uint8_t*) &shiftedleft;
 	uint8_t *next_container, *previous_container;
 
-	// Masks
-	const __m128i maskright = _mm_set_epi8(14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,50);
-	const __m128i maskleft = _mm_set_epi8(50,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1);
-
 	for (unsigned i = 1; i < num_elements - 1; i++)
 	{
 		previous_container = (uint8_t*) &inputB[i-1];
 		next_container = (uint8_t*) &inputB[i+1];
 		// Shift self so we can find maximum
-		shiftedright = _mm_shuffle_epi8(inputB[i], maskright);
-		shiftedleft = _mm_shuffle_epi8(inputB[i], maskleft);
+		shiftedright = _mm_slli_si128(inputB[i], 1);
+		shiftedleft = _mm_srli_si128(inputB[i], 1);
 		// Need to bring in int from next element in vector
 		shiftedright_ptr[0] = previous_container[15];
 		shiftedleft_ptr[15] = next_container[0];
@@ -236,8 +228,8 @@ void dilate_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std
 	// When i = 0
 	next_container = (uint8_t*) &inputB[1];
 	// Shift self so we can find maximum
-	shiftedright = _mm_shuffle_epi8(inputB[0], maskright);
-	shiftedleft = _mm_shuffle_epi8(inputB[0], maskleft);
+	shiftedright = _mm_slli_si128(inputB[0], 1);
+	shiftedleft = _mm_srli_si128(inputB[0], 1);
 	// Need to bring in int from next element in vector
 	shiftedright_ptr[0] = 0; // Nothing to bring in so assign minmium possible value
 	shiftedleft_ptr[15] = next_container[0];
@@ -247,8 +239,8 @@ void dilate_line_sse_8(unsigned w, const std::vector<__m128i> &inputA, const std
 	// When i = num_elements - 1
 	previous_container = (uint8_t*) &inputB[num_elements-2];
 	// Shift self so we can find maximum
-	shiftedright = _mm_shuffle_epi8(inputB[num_elements - 1], maskright);
-	shiftedleft = _mm_shuffle_epi8(inputB[num_elements - 1], maskleft);
+	shiftedright = _mm_slli_si128(inputB[num_elements-1], 1);
+	shiftedleft = _mm_srli_si128(inputB[num_elements-1], 1);
 	// Need to bring in int from next element in vector
 	shiftedright_ptr[0] = previous_container[15];
 	shiftedleft_ptr[15-w%16] = 0; // Accounts for w%16 == 8 case
@@ -268,17 +260,13 @@ void erode_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const 
 	uint8_t *shiftedleft_ptr = (uint8_t*) &shiftedleft;
 	uint8_t *next_container, *previous_container;
 
-	// Masks
-	const __m128i maskright = _mm_set_epi8(14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,50);
-	const __m128i maskleft = _mm_set_epi8(50,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1);
-
 	for (unsigned i = 1; i < num_elements - 1; i++)
 	{
 		previous_container = (uint8_t*) &inputB[i-1];
 		next_container = (uint8_t*) &inputB[i+1];
 		// Shift self so we can find minimum
-		shiftedright = _mm_shuffle_epi8(inputB[i], maskright);
-		shiftedleft = _mm_shuffle_epi8(inputB[i], maskleft);
+		shiftedright = _mm_slli_si128(inputB[i], 1);
+		shiftedleft = _mm_srli_si128(inputB[i], 1);
 		// Need to bring in int from next element in vector
 		shiftedright_ptr[0] = previous_container[15];
 		shiftedleft_ptr[15] = next_container[0];
@@ -289,8 +277,8 @@ void erode_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const 
 	// When i = 0
 	next_container = (uint8_t*) &inputB[1];
 	// Shift self so we can find minimum
-	shiftedright = _mm_shuffle_epi8(inputB[0], maskright);
-	shiftedleft = _mm_shuffle_epi8(inputB[0], maskleft);
+	shiftedright = _mm_slli_si128(inputB[0], 1);
+	shiftedleft = _mm_srli_si128(inputB[0], 1);
 	// Need to bring in int from next element in vector
 	shiftedright_ptr[0] = 255; // Nothing to bring in so assign maxmium possible value
 	shiftedleft_ptr[15] = next_container[0];
@@ -300,8 +288,8 @@ void erode_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const 
 	// When i = num_elements - 1
 	previous_container = (uint8_t*) &inputB[num_elements-2];
 	// Shift self so we can find minimum
-	shiftedright = _mm_shuffle_epi8(inputB[num_elements - 1], maskright);
-	shiftedleft = _mm_shuffle_epi8(inputB[num_elements - 1], maskleft);
+	shiftedright = _mm_slli_si128(inputB[num_elements-1], 1);
+	shiftedleft = _mm_srli_si128(inputB[num_elements-1], 1);
 	// Need to bring in int from next element in vector
 	shiftedright_ptr[0] = previous_container[15];
 	shiftedleft_ptr[15-w%16] = 255; // Accounts for w%16 == 8 case
@@ -321,17 +309,13 @@ void dilate_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const
 	uint8_t *shiftedleft_ptr = (uint8_t*) &shiftedleft;
 	uint8_t *next_container, *previous_container;
 
-	// Masks
-	const __m128i maskright = _mm_set_epi8(14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,50);
-	const __m128i maskleft = _mm_set_epi8(50,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1);
-
 	for (unsigned i = 1; i < num_elements - 1; i++)
 	{
 		previous_container = (uint8_t*) &inputB[i-1];
 		next_container = (uint8_t*) &inputB[i+1];
 		// Shift self so we can find maximum
-		shiftedright = _mm_shuffle_epi8(inputB[i], maskright);
-		shiftedleft = _mm_shuffle_epi8(inputB[i], maskleft);
+		shiftedright = _mm_slli_si128(inputB[i], 1);
+		shiftedleft = _mm_srli_si128(inputB[i], 1);
 		// Need to bring in int from next element in vector
 		shiftedright_ptr[0] = previous_container[15];
 		shiftedleft_ptr[15] = next_container[0];
@@ -342,8 +326,8 @@ void dilate_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const
 	// When i = 0
 	next_container = (uint8_t*) &inputB[1];
 	// Shift self so we can find maximum
-	shiftedright = _mm_shuffle_epi8(inputB[0], maskright);
-	shiftedleft = _mm_shuffle_epi8(inputB[0], maskleft);
+	shiftedright = _mm_slli_si128(inputB[0], 1);
+	shiftedleft = _mm_srli_si128(inputB[0], 1);
 	// Need to bring in int from next element in vector
 	shiftedright_ptr[0] = 0; // Nothing to bring in so assign minmium possible value
 	shiftedleft_ptr[15] = next_container[0];
@@ -353,13 +337,13 @@ void dilate_line_top_sse_8(unsigned w, const std::vector<__m128i> &inputB, const
 	// When i = num_elements - 1
 	previous_container = (uint8_t*) &inputB[num_elements-2];
 	// Shift self so we can find maximum
-	shiftedright = _mm_shuffle_epi8(inputB[num_elements - 1], maskright);
-	shiftedleft = _mm_shuffle_epi8(inputB[num_elements - 1], maskleft);
+	shiftedright = _mm_slli_si128(inputB[num_elements-1], 1);
+	shiftedleft = _mm_srli_si128(inputB[num_elements-1], 1);
 	// Need to bring in int from next element in vector
 	shiftedright_ptr[0] = previous_container[15];
 	shiftedleft_ptr[15-w%16] = 0; // Accounts for w%16 == 8 case
 	// Get maximum
-	output[num_elements-1] = _mm_max_epu8( _mm_max_epu8(shiftedleft, shiftedright), _mm_max_epu8(inputB[num_elements-1], inputC[num_elements-1]));
+	output[num_elements-1] = _mm_max_epu8(_mm_max_epu8(shiftedleft, shiftedright), _mm_max_epu8(inputB[num_elements-1], inputC[num_elements-1]));
 }
 
 int process_recursive_function_sse_8(unsigned recursionlevel,const unsigned w,const unsigned h,const int inputhandle,const int outputhandle, std::vector<std::vector<__m128i>> &pixelsA, std::vector<std::vector<__m128i>> &pixelsB, std::vector<std::vector<__m128i>> &pixelsC, std::vector<uint32_t> &line, std::vector<__m128i> &output, std::vector<uint32_t> &status, const uint32_t toplevel){

@@ -1,7 +1,7 @@
-// Header files for windows compilation
+// Header files for Windows compilation
 #ifdef _WIN32
-#include <io.h>
-#include <stdint.h>
+//#include <io.h>
+//#include <stdint.h>
 
 // Header files for OSX compilation
 #else
