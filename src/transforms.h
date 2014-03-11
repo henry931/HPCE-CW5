@@ -11,8 +11,19 @@
 // Shared Headers
 #include <vector>
 
-//#include "smmintrin.h"
-#include "emmintrin.h"
+// Intrinsic headers
+// AVX, AVX2, FMA
+// immintrin.h
+// SSE4.2
+// #include "nmmintrin.h"
+// SSE4.1
+// #include "smmintrin.h"
+// SSSE3
+//#include "tmmintrin.h"
+// SSE3
+#include "pmmintrin.h"
+// SSE2
+// #include "emmintrin.h"
 
 void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output);
 void dilate(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output);

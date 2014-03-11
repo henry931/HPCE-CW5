@@ -11,6 +11,9 @@
 // Shared Headers
 #include <vector>
 
+// SSE3
+#include "pmmintrin.h"
+
 //int process_recursive_function(unsigned recursionlevel,const unsigned w,const unsigned h,const unsigned bits,const int inputhandle,const int outputhandle, std::vector<std::vector<uint32_t>> &pixelsA, std::vector<std::vector<uint32_t>> &pixelsB, std::vector<std::vector<uint32_t>> &pixelsC, std::vector<uint32_t> &line, std::vector<uint32_t> &output, std::vector<uint32_t> &status, const uint32_t toplevel);
 
 //int process_recursive_function_8(unsigned recursionlevel,const unsigned w,const unsigned h,const unsigned bits,const int inputhandle,const int outputhandle, std::vector<std::vector<uint32_t>> &pixelsA, std::vector<std::vector<uint32_t>> &pixelsB, std::vector<std::vector<uint32_t>> &pixelsC, std::vector<uint32_t> &line, std::vector<uint32_t> &output, std::vector<uint32_t> &status, const uint32_t toplevel);

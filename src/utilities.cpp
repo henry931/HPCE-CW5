@@ -11,7 +11,10 @@
 
 #include "utilities.h"
 
-#include "smmintrin.h"
+//#include "tmmintrin.h"
+
+// SSE3
+#include "pmmintrin.h"
 
 //TODO: Move OpenCL initialization code into here.
 

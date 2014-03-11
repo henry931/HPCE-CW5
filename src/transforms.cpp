@@ -31,8 +31,10 @@
 
 #include "CL/cl.hpp"
 
-#include "smmintrin.h"
-#include "emmintrin.h"
+//#include "tmmintrin.h"
+
+// SSE3
+#include "pmmintrin.h"
 
 void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output)
 {

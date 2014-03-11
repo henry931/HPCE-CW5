@@ -11,7 +11,10 @@
 // Shared Headers
 #include <vector>
 
-#include "smmintrin.h"
+//#include "tmmintrin.h"
+
+// SSE3
+#include "pmmintrin.h"
 
 std::string LoadSource(const char *fileName);
 

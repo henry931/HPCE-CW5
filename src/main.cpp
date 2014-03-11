@@ -22,6 +22,9 @@
 #include "transforms.h"
 #include "recursive.h"
 
+// SSE3
+#include "pmmintrin.h"
+
 int main(int argc, char *argv[])
 {
 	// REMOVE BEFORE SUBMIT

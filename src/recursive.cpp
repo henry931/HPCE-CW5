@@ -21,6 +21,9 @@
 #include "transforms.h"
 #include "utilities.h"
 
+// SSE3
+#include "pmmintrin.h"
+
 void process_recursive_function(unsigned recursionlevel,const unsigned w,const unsigned h,const unsigned bits,const int inputhandle,const int outputhandle, std::vector<std::vector<uint32_t>> &pixelsA, std::vector<std::vector<uint32_t>> &pixelsB, std::vector<std::vector<uint32_t>> &pixelsC, std::vector<uint32_t> &line, std::vector<uint32_t> &output, std::vector<uint32_t> &status, const uint32_t toplevel){
 
 	uint32_t *thisline = &line[recursionlevel];
