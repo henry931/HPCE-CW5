@@ -102,6 +102,7 @@ std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,
         gpuBuffers.push_back(new cl::Buffer(context, CL_MEM_READ_WRITE, cbBuffer));
         gpuBuffers.push_back(new cl::Buffer(context, CL_MEM_READ_WRITE, cbBuffer));
     }
+    gpuBuffers.push_back(new cl::Buffer(context, CL_MEM_READ_WRITE, cbBuffer)); // ... and one for luck.
     
     std::string erodeKernelName;
     std::string dilateKernelName;
@@ -147,7 +148,7 @@ std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,
     return std::tr1::make_tuple(erodeKernel,dilateKernel,gpuBuffers,queue,offset,globalSize,localSize);
 }
 
-void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vector<uint32_t>& gpuReadOffsets, std::vector<uint32_t>& gpuWriteOffsets, uint32_t* pixelsIn, uint32_t* pixelsOut, std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,cl::NDRange,cl::NDRange,cl::NDRange> cl_instance)
+void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vector<uint32_t>& gpuReadOffsets, std::vector<uint32_t>& gpuWriteOffsets, uint32_t* pixelsIn, uint32_t* pixelsOut,std::vector<uint32_t> aboveOverrides,std::vector<uint32_t> belowOverrides,std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,cl::NDRange,cl::NDRange,cl::NDRange> cl_instance)
 {
     size_t cbBuffer=(w*bits)/8;
     
@@ -174,7 +175,7 @@ void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vecto
             
             queue.enqueueNDRangeKernel(erodeKernel, offset, globalSize, localSize);
         }
-        for(unsigned i=abs(levels);i<2*abs(levels)-1;i++){
+        for(unsigned i=abs(levels);i<2*abs(levels);i++){
             
             dilateKernel.setArg(0, 0xFFFFFFFF);
             dilateKernel.setArg(1, 0xFFFFFFFF);
@@ -198,11 +199,8 @@ void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vecto
             dilateKernel.setArg(5, *gpuBuffers[i+1]);
             
             queue.enqueueNDRangeKernel(dilateKernel, offset, globalSize, localSize);
-            
-            queue.enqueueBarrier();
-            
         }
-        for(unsigned i=abs(levels);i<2*abs(levels)-1;i++){
+        for(unsigned i=abs(levels);i<2*abs(levels);i++){
             
             erodeKernel.setArg(0, 0x0);
             erodeKernel.setArg(1, 0x0);
@@ -212,12 +210,10 @@ void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vecto
             erodeKernel.setArg(5, *gpuBuffers[i+1]);
             
             queue.enqueueNDRangeKernel(erodeKernel, offset, globalSize, localSize);
-            
-            queue.enqueueBarrier();
         }
     }
     
-    queue.enqueueReadBuffer(*gpuBuffers[2*abs(levels)-1], CL_TRUE, cbBuffer*gpuReadOffsets[2*abs(levels)-1], cbBuffer, pixelsOut);
+    queue.enqueueReadBuffer(*gpuBuffers[2*abs(levels)], CL_TRUE, cbBuffer*gpuReadOffsets[2*abs(levels)], cbBuffer, pixelsOut);
 
     queue.enqueueBarrier();
 }
@@ -245,12 +241,15 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
     uint64_t* outputWriteptr = &output[0];
     uint64_t* outputReadptr = &output[cbinput/8];
     
-    std::vector<uint32_t> gpuReadOffsets(2*levels,0);
-    std::vector<uint32_t> gpuWriteOffsets(2*levels,0);
+    std::vector<uint32_t> gpuReadOffsets(2*levels+1,0);
+    std::vector<uint32_t> gpuWriteOffsets(2*levels+1,0);
+    
+    std::vector<uint32_t> aboveOverrides(2*levels,0);
+    std::vector<uint32_t> belowOverrides(2*levels,0);
     
     int j=0;
     
-    for (int i=0; i<2*levels; i++)
+    for (int i=0; i<2*levels+1; i++)
     {
         gpuWriteOffsets[i] = j;
         
@@ -282,10 +281,11 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
     bool full = false;
     
     //int tailEnd = 8*levels+4;
-    int tailEnd = 35;
+    int tailEnd = 37;
     
     int lines_read = 0;
     int lines_written = 0;
+    
     int total_iterations = 0;
     
     while(1){
@@ -300,7 +300,7 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
             
             pack_blob_32(cbinput, unpackedOutputReadptr, outputWriteptr);
             
-            if (fullness >= /*8*levels+5*/ 36 || full)
+            if (fullness >= /*8*levels+5*/ 38 || full)
             {
                 full = true;
                 write_blob(STDOUT_FILENO, cbinput, outputReadptr);
@@ -317,9 +317,9 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
         //});
         
         group.run([&](){
-            process_opencl_packed_line(levels, w, bits, gpuReadOffsets, gpuWriteOffsets, unpackedInputReadptr, unpackedOutputWriteptr, cl_instance);
+            process_opencl_packed_line(levels, w, bits, gpuReadOffsets, gpuWriteOffsets, unpackedInputReadptr, unpackedOutputWriteptr, aboveOverrides, belowOverrides, cl_instance);
             
-            for (int i=0; i<2*levels; i++)
+            for (int i=0; i<2*levels+1; i++)
             {
                 int j = gpuWriteOffsets[i];
                 
@@ -369,6 +369,4 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
     }
     
     fprintf(stderr, "read: %d written: %d iters: %d",lines_read,lines_written,total_iterations);
-    
-    //TODO: empty pipeline
 }
