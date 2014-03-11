@@ -18,12 +18,8 @@
 #include <iostream>
 #include <string>
 
-#include "utilities.h"
-#include "transforms.h"
-#include "recursive.h"
-
-// SSE3
-#include "pmmintrin.h"
+// Recursive SSE Processes
+#include "recursive_sse.h"
 
 int main(int argc, char *argv[])
 {
@@ -75,6 +71,7 @@ int main(int argc, char *argv[])
 
 		fprintf(stderr, "Processing %d x %d image with %d bits per pixel.\n", w, h, bits);
 
+		// Do processing
 		process_recursive_sse_8(levels, w, h,STDIN_FILENO,STDOUT_FILENO);
 
 		return 0;
