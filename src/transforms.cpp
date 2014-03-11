@@ -266,25 +266,11 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
     
     bool finished = false;
     
-    //input->inputunpacked->2ngpu->outputunpacked->output->write
-    //2n+2 to get first byte into last gpu buffer
-    //
-    //first meaningful gpu output occurs when the fourth byte is written into that buffer
-    //2n+5 to get fourth byte into last gpu buffer and first meaningful byte into unpackedOutput
-    //2n+6 to get first meaningul byte into Output
-    //then, first write is on the 2n+7th iteration.
-    
-    // 3 + 2n*4 + 2
-    
     int fullness = 0;
     
     bool full = false;
     
-    //int tailEnd = 8*levels+4;
-    int tailEnd = 37;
-    
-    int lines_read = 0;
-    int lines_written = 0;
+    int tailEnd = 4*levels+5;
     
     int image_line = 0;
     
@@ -307,17 +293,15 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
         
         group.run([&](){
             if(!finished && !read_blob(STDIN_FILENO, cbinput, inputWriteptr)) finished = true;
-            else lines_read++;
             
             unpack_blob_32(cbinput, inputReadptr, unpackedInputWriteptr);
             
             pack_blob_32(cbinput, unpackedOutputReadptr, outputWriteptr);
             
-            if (fullness >= /*8*levels+5*/ 38 || full)
+            if (fullness >= 4*levels+6 || full)
             {
                 full = true;
                 write_blob(STDOUT_FILENO, cbinput, outputReadptr);
-                lines_written++;
             }
             else
             {
@@ -361,6 +345,4 @@ void transform(int levels, unsigned w, unsigned h, unsigned bits)
         image_line++;
         if (image_line == h) image_line = 0;
     }
-    
-    fprintf(stderr, "read: %d written: %d iters: %d",lines_read,lines_written,image_line);
 }

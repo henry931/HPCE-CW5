@@ -190,9 +190,8 @@ __kernel void erode_kernel_32(uint aboveOverride,uint belowOverride,uint inputOf
     uint x=get_global_id(0);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -210,9 +209,8 @@ __kernel void dilate_kernel_32(uint aboveOverride,uint belowOverride,uint inputO
     uint x=get_global_id(0);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -230,9 +228,8 @@ __kernel void erode_kernel_1(uint aboveOverride,uint belowOverride,uint inputOff
     uint x=get_global_id(0);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -256,9 +253,8 @@ __kernel void dilate_kernel_1(uint aboveOverride,uint belowOverride,uint inputOf
     uint x=get_global_id(0);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -283,9 +279,8 @@ __kernel void erode_kernel_2(uint aboveOverride,uint belowOverride,uint inputOff
     uint x=get_global_id(0);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -309,9 +304,8 @@ __kernel void dilate_kernel_2(uint aboveOverride,uint belowOverride,uint inputOf
     uint x=get_global_id(0);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -335,9 +329,8 @@ __kernel void erode_kernel_4(uint aboveOverride,uint belowOverride,uint inputOff
     uint x=get_global_id(0);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -361,9 +354,8 @@ __kernel void dilate_kernel_4(uint aboveOverride,uint belowOverride,uint inputOf
     uint x=get_global_id(0);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -437,12 +429,10 @@ __kernel void dilate_kernel_8(uint aboveOverride,uint belowOverride,uint inputOf
 __kernel void erode_kernel_16(uint aboveOverride,uint belowOverride,uint inputOffset,uint outputOffset,__global uint* input,__global uint* output)
 {
     uint x=get_global_id(0);
-    uint y=get_global_id(1);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
@@ -464,12 +454,10 @@ __kernel void erode_kernel_16(uint aboveOverride,uint belowOverride,uint inputOf
 __kernel void dilate_kernel_16(uint aboveOverride,uint belowOverride,uint inputOffset,uint outputOffset,__global uint* input,__global uint* output)
 {
     uint x=get_global_id(0);
-    uint y=get_global_id(1);
     
     int w=get_global_size(0);
-    uint h=get_global_size(1);
     
-    uint maxsize = w*h;
+    uint maxsize = 4*w;
     
     int inputIndex=inputOffset*w + x;
     uint outputIndex=outputOffset*w + x;
