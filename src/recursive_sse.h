@@ -20,3 +20,5 @@ void process_recursive_sse_2(const int levels, const unsigned w, const unsigned 
 void process_recursive_sse_1(const int levels, const unsigned w, const unsigned h,const int inputhandle,const int outputhandle);
 void process_recursive_sse_16(const int levels, const unsigned w, const unsigned h,const int inputhandle,const int outputhandle);
 void process_recursive_sse_32(const int levels, const unsigned w, const unsigned h,const int inputhandle,const int outputhandle);
+
+void process_recursive_sse(const unsigned bits, const int levels, const unsigned w, const unsigned h,const int inputhandle,const int outputhandle);

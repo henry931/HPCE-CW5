@@ -3012,3 +3012,14 @@ void process_recursive_sse_32(const int levels, const unsigned w, const unsigned
 	return;
 
 }
+
+void process_recursive_sse(const unsigned bits, const int levels, const unsigned w, const unsigned h,const int inputhandle,const int outputhandle)
+{
+			// Do processing
+		if(bits == 8)		process_recursive_sse_8(levels, w, h,inputhandle,outputhandle);
+		else if(bits == 4)	process_recursive_sse_4(levels, w, h,inputhandle,outputhandle);
+		else if(bits == 2)	process_recursive_sse_2(levels, w, h,inputhandle,outputhandle);
+		else if(bits == 1)	process_recursive_sse_1(levels, w, h,inputhandle,outputhandle);
+		else if(bits == 16)	process_recursive_sse_16(levels, w, h,inputhandle,outputhandle);
+		else if(bits == 32)	process_recursive_sse_32(levels, w, h,inputhandle,outputhandle);
+}
