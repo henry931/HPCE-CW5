@@ -30,8 +30,8 @@ int main(int argc, char *argv[])
 	_sopen_s(&STDIN_FILENO, "input.raw", _O_BINARY | _O_RDONLY, _SH_DENYWR, _S_IREAD);
 	_sopen_s(&STDOUT_FILENO , "output.raw", _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, _SH_DENYRD, _S_IWRITE);
 	#else
-	//freopen("input.raw", "r", stdin);
-	//freopen("output.raw", "w", stdout);
+	freopen("input.raw", "r", stdin);
+	freopen("output.raw", "w", stdout);
 	#endif
     //TODO: REMOVE BEFORE SUBMIT
     
