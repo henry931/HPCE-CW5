@@ -3,17 +3,16 @@
 // Header files for windows compilation
 #include <io.h>
 #include <stdint.h>
-#include <tuple>
 
 #else
 // Header files for OSX compilation
 #include <unistd.h>
-#include <tr1/tuple>
+
 #endif
 
 // Shared Headers
 #include <vector>
-
+#include <tr1/tuple>
 #include "CL/cl.hpp"
 
 int enumerate_cl_devices();
