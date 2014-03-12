@@ -1,19 +1,27 @@
-// Header files for windows compilation
+
 #ifdef _WIN32
+// Header files for windows compilation
 #include <io.h>
 #include <stdint.h>
+#include <tuple>
 
-// Header files for OSX compilation
 #else
+// Header files for OSX compilation
 #include <unistd.h>
+#include <tr1/tuple>
 #endif
 
 // Shared Headers
 #include <vector>
 
-void erode(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output);
-void dilate(unsigned w, unsigned h, const std::vector<uint32_t> &input, std::vector<uint32_t> &output);
+#include "CL/cl.hpp"
 
-void process(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);
+int enumerate_cl_devices();
 
-void process_opencl(int levels, unsigned w, unsigned h, unsigned /*bits*/, std::vector<uint32_t> &pixels);
+int test_cl_devices(int levels, unsigned w, unsigned h, unsigned bits, std::string source);
+
+void transform(int deviceNumber, int levels, unsigned w, unsigned h, unsigned bits);
+
+void process_opencl_packed_line(int levels, unsigned w, unsigned bits,std::vector<uint32_t>& gpuReadOffsets, std::vector<uint32_t>& gpuWriteOffsets, uint32_t* pixelsIn, uint32_t* pixelsOut,std::vector<uint32_t> aboveOverrides,std::vector<uint32_t> belowOverrides, std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,cl::NDRange,cl::NDRange,cl::NDRange> cl_instance);
+
+std::tr1::tuple<cl::Kernel,cl::Kernel,std::vector<cl::Buffer*>,cl::CommandQueue,cl::NDRange,cl::NDRange,cl::NDRange> init_cl(int levels, unsigned w, unsigned h, unsigned bits, std::string source, int deviceNumber = -1);

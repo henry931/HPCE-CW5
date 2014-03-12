@@ -3,7 +3,7 @@
 #include <io.h>
 #include <stdint.h>
 
-// Header files for OSX compilation
+// Header files for Mac OS X compilation
 #else
 #include <unistd.h>
 #endif
@@ -27,6 +27,9 @@ uint32_t vmax(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e);
 
 void unpack_blob(unsigned w, unsigned h, unsigned bits, const uint64_t *pRaw, uint32_t *pUnpacked);
 void pack_blob(unsigned w, unsigned h, unsigned bits, const uint32_t *pUnpacked, uint64_t *pRaw);
+
+void unpack_blob_32(unsigned bytes, const uint64_t *pRaw, uint32_t *pUnpacked);
+void pack_blob_32(unsigned bytes, const uint32_t *pUnpacked, uint64_t *pRaw);
 
 bool read_blob(int fd, uint64_t cbBlob, void *pBlob);
 void write_blob(int fd, uint64_t cbBlob, const void *pBlob);
