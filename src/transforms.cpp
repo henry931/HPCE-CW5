@@ -9,6 +9,12 @@
 // Header files for windows compilation
 #ifdef _WIN32
 #define CL_USE_DEPRECATED_OPENCL_1_1_APIS
+#include <tuple>
+#include <functional>
+#include <time.h>
+#else
+#include <tr1/tuple>
+#include <sys/time.h>
 #endif
 
 // Shared Headers
@@ -22,8 +28,7 @@
 #include <fstream>
 #include <streambuf>
 #include <iostream>
-#include <tr1/tuple>
-#include <sys/time.h>
+
 
 #include "transforms.h"
 #include "utilities.h"
